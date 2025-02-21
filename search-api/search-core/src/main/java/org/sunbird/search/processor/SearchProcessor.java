@@ -241,8 +241,13 @@ public class SearchProcessor {
 			}
 		}
 
-		searchSourceBuilder.size(searchDTO.getLimit());
-		searchSourceBuilder.from(searchDTO.getOffset());
+		int offset = searchDTO.getOffset();
+		int size = searchDTO.getLimit();
+		int from = offset * size;
+		if(size>0){
+			searchSourceBuilder.size(size);
+		}
+		searchSourceBuilder.from(from);
 		QueryBuilder query = getSearchQuery(searchDTO);
 		if (searchDTO.isFuzzySearch())
 			relevanceSort = true;
