@@ -466,7 +466,9 @@ object HierarchyManager {
         val responseFuture = oec.graphService.readExternalProps(req, List("relational_metadata"))
         responseFuture.map(response => {
             if (!ResponseHandler.checkError(response)) {
-                val relationalMetadataString = Option(response.getResult.toMap.getOrDefault("relational_metadata", ""))
+                val relationalMetadataString = Option(response.getResult)
+                  .map(_.toMap)
+                  .flatMap(_.get("relational_metadata"))
                   .collect { case s: String if StringUtils.isNotEmpty(s) => s }
 
                 relationalMetadataString match {
@@ -482,7 +484,8 @@ object HierarchyManager {
                 responseFuture.map(response => {
                     if (!ResponseHandler.checkError(response)) {
                         val relationalMetadataString = Option(response.getResult)
-                          .map(_.toMap.getOrDefault("relational_metadata", ""))
+                          .map(_.toMap)
+                          .flatMap(_.get("relational_metadata"))
                           .collect { case s: String if StringUtils.isNotEmpty(s) => s }
 
                         relationalMetadataString match {
