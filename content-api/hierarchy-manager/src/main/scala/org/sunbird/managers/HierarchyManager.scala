@@ -11,6 +11,9 @@ import org.sunbird.common.{JsonUtils, JWTUtil, Platform}
 import org.sunbird.graph.dac.model.Node
 import org.sunbird.graph.nodes.DataNode
 import org.sunbird.graph.utils.{NodeUtil, ScalaJsonUtils}
+import org.apache.commons.lang3.StringUtils
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters
@@ -463,20 +466,22 @@ object HierarchyManager {
         val responseFuture = oec.graphService.readExternalProps(req, List("relational_metadata"))
         responseFuture.map(response => {
             if (!ResponseHandler.checkError(response)) {
-                if(response.getResult.toMap.getOrDefault("relational_metadata", "") != null && response.getResult.toMap.getOrDefault("relational_metadata", "") != "") {
-                    val relationalMetadataString = response.getResult.toMap.getOrDefault("relational_metadata", "").asInstanceOf[String]
-                    if (StringUtils.isNotEmpty(relationalMetadataString)) {
-                        Future(JsonUtils.deserialize(relationalMetadataString, classOf[java.util.Map[String, AnyRef]]).toMap)
-                    } else
-                        Future(Map[String, AnyRef]())
-                } else Future(Map[String, AnyRef]())
+                val relationalMetadataString = Option(response.getResult.toMap.getOrDefault("relational_metadata", ""))
+                  .collect { case s: String if StringUtils.isNotEmpty(s) => s }
+
+                relationalMetadataString match {
+                    case Some(metadata) =>
+                        Future.successful(JsonUtils.deserialize(metadata, classOf[java.util.Map[String, AnyRef]]).toMap)
+                    case None =>
+                        Future.successful(Map.empty[String, AnyRef])
+                }
             } else {
                 val req = new Request(request)
                 req.put("identifier", identifier)
                 val responseFuture = oec.graphService.readExternalProps(req, List("relational_metadata"))
                 responseFuture.map(response => {
                     if (!ResponseHandler.checkError(response)) {
-                        if(response.getResult.toMap.getOrDefault("relational_metadata", "") != null && response.getResult.toMap.getOrDefault("relational_metadata", "") != "") {
+                        if (response.getResult.toMap.getOrDefault("relational_metadata", "") != null && response.getResult.toMap.getOrDefault("relational_metadata", "") != "") {
                             val relationalMetadataString = response.getResult.toMap.getOrDefault("relational_metadata", "").asInstanceOf[String]
                             if (StringUtils.isNotEmpty(relationalMetadataString)) {
                                 Future(JsonUtils.deserialize(relationalMetadataString, classOf[java.util.Map[String, AnyRef]]).toMap)
