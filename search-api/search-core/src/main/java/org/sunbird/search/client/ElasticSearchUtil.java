@@ -8,6 +8,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.http.HttpHost;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.util.EntityUtils;
@@ -71,6 +73,8 @@ import java.util.stream.Collectors;
  *
  */
 public class ElasticSearchUtil {
+	private static final Log log = LogFactory.getLog(ElasticSearchUtil.class);
+
 	static {
 		System.setProperty("es.set.netty.runtime.available.processors", "false");
 		registerShutdownHook();
@@ -317,6 +321,7 @@ public class ElasticSearchUtil {
 	@SuppressWarnings("rawtypes")
 	public static List<Object> getDocumentsFromSearchResult(SearchResponse result, Class objectClass) {
 		SearchHits hits = result.getHits();
+		log.info("Total hits " + hits.getTotalHits());
 		return getDocumentsFromHits(hits);
 	}
 
