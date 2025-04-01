@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.index.query.MultiMatchQueryBuilder.Type;
@@ -34,6 +36,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class SearchProcessor {
+	private static final Log log = LogFactory.getLog(ElasticSearchUtil.class);
 
 	private ObjectMapper mapper = new ObjectMapper();
 	private static final String ASC_ORDER = "asc";
@@ -53,6 +56,7 @@ public class SearchProcessor {
 			throws Exception {
 		List<Map<String, Object>> groupByFinalList = new ArrayList<Map<String, Object>>();
 		SearchSourceBuilder query = processSearchQuery(searchDTO, groupByFinalList, true);
+		log.info("search query: " + query.toString());
 
 		Future<SearchResponse> searchResponse = null;
 		boolean enableFuzzyWhenNoResults = Platform.config.hasPath("search.fields.enable.fuzzy.when.noresult") &&
@@ -67,12 +71,16 @@ public class SearchProcessor {
 				searchDTO.setFuzzySearch(true);
 				groupByFinalList.clear();
 				query = processSearchQuery(searchDTO, groupByFinalList, true);
+				log.info("search query with fuzzy: " + query.toString());
 			}
 		}
 
 		if (searchDTO.isSecureSettingsDisabled()) {
 			query.postFilter(getPostFilterQuery(searchDTO.getPostFilter()));
+			log.info("search query with post filter: " + query.toString());
 		}
+		log.info("Is fuzzy search enabled: " + searchDTO.isFuzzySearch());
+		log.info("Is post filter applied: " + searchDTO.isSecureSettingsDisabled());
 
 		searchResponse = ElasticSearchUtil.search(SearchConstants.COMPOSITE_SEARCH_INDEX, query);
 
