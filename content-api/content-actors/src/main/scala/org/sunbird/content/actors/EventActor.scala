@@ -74,7 +74,10 @@ class EventActor @Inject()(implicit oec: OntologyEngineContext, ss: StorageServi
         request.put("identifier", updatedIdentifier.replace(".img", ""))
         verifyStandaloneEventAndApply(super.update, request, true)
     }
-    DataNode.delete(request)
+    DataNode.delete(request).recoverWith {
+      case ex: Exception =>
+        Future.successful(ResponseHandler.OK)
+    }
   }
 
   override def discard(request: Request): Future[Response] = {
