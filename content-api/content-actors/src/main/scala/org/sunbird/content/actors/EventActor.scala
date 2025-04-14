@@ -65,7 +65,6 @@ class EventActor @Inject()(implicit oec: OntologyEngineContext, ss: StorageServi
     DataNode.read(request).flatMap { node =>
       // If the node exists, proceed with update and delete
       DataNode.updatev2(request).flatMap { _ =>
-        DataNode.delete(request)
         request.put("identifier", updatedIdentifier.replace(".img", ""))
         verifyStandaloneEventAndApply(super.update, request, true)
       }
@@ -75,6 +74,7 @@ class EventActor @Inject()(implicit oec: OntologyEngineContext, ss: StorageServi
         request.put("identifier", updatedIdentifier.replace(".img", ""))
         verifyStandaloneEventAndApply(super.update, request, true)
     }
+    DataNode.delete(request)
   }
 
   override def discard(request: Request): Future[Response] = {
