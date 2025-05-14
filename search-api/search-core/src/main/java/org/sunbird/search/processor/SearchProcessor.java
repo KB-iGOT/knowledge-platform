@@ -50,7 +50,7 @@ public class SearchProcessor {
 			throws Exception {
 		List<Map<String, Object>> groupByFinalList = new ArrayList<Map<String, Object>>();
 		SearchSourceBuilder query = processSearchQuery(searchDTO, groupByFinalList, true);
-
+		TelemetryManager.log("SearchProcessor::processSearch 1 : search query: " + query);
 		Future<SearchResponse> searchResponse = null;
 		boolean enableFuzzyWhenNoResults = Platform.config.hasPath("search.fields.enable.fuzzy.when.noresult") &&
 			Platform.config.getBoolean("search.fields.enable.fuzzy.when.noresult");
@@ -74,6 +74,7 @@ public class SearchProcessor {
 			query.query(mainQuery);
 		}
 
+		TelemetryManager.log("SearchProcessor::processSearch 2: search query: " + query);
 		searchResponse = ElasticSearchUtil.search(SearchConstants.COMPOSITE_SEARCH_INDEX, query);
 
 		return searchResponse.map(new Mapper<SearchResponse, Map<String, Object>>() {
