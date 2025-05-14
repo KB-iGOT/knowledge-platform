@@ -633,6 +633,10 @@ public class ElasticSearchUtil {
 				} else {
 					terms = aggregations.get(groupByParent);
 				}
+				if (terms == null || terms.getBuckets().isEmpty()) {
+					countMap.put(groupByParent, new HashMap<String, Object>());
+					continue;
+				}
 				buckets = (List<Bucket>)terms.getBuckets();
 				List<Map<String, Object>> parentGroupList = new ArrayList<Map<String, Object>>();
 				for (Bucket bucket : buckets) {
