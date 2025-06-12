@@ -13,7 +13,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import org.sunbird.`object`.importer.{ImportConfig, ImportManager}
 import org.sunbird.actor.core.BaseActor
 import org.sunbird.cache.impl.RedisCache
-import org.sunbird.content.util.{AcceptFlagManager, ContentConstants, CopyManager, DiscardManager, FlagManager, RetireManager}
+import org.sunbird.content.util.{AcceptFlagManager, ContentConstants, CopyManager, DiscardManager, FlagManager, NotificationManager, RetireManager}
 import org.sunbird.cloudstore.StorageService
 import org.sunbird.common.{ContentParams, JsonUtils, Platform, Slug}
 import org.sunbird.common.dto.{Request, Response, ResponseHandler}
@@ -31,7 +31,7 @@ import org.sunbird.managers.HierarchyManager.hierarchyPrefix
 
 import java.time.{ZoneId, ZonedDateTime}
 import java.time.format.DateTimeFormatter
-import scala.collection.JavaConverters
+import scala.collection.{JavaConverters, Map}
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -279,7 +279,15 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				request.getContext.put("schemaName", node.getObjectType.toLowerCase())
 			if (StringUtils.equalsAnyIgnoreCase("Processing", node.getMetadata.getOrDefault("status", "").asInstanceOf[String]))
 				throw new ClientException("ERR_NODE_ACCESS_DENIED", "Review Operation Can't Be Applied On Node Under Processing State")
-			else ReviewManager.review(request, node)
+			else {
+				val response = ReviewManager.review(request, node)
+				try {
+					NotificationManager.sendNotification("CONTENT_REVIEW_REQUEST", "ALERT", List(""), "", Map.empty)
+				} catch {
+					case e: Exception => println("Error sending notification :" + e)
+				}
+				response
+			}
 		}).flatMap(f => f)
 	}
 
