@@ -282,7 +282,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			else {
 				val response = ReviewManager.review(request, node)
 				try {
-					NotificationManager.sendNotification("CONTENT_REVIEW_REQUEST", "ALERT", List(""), "", Map.empty)
+					NotificationManager.sendNotification("CONTENT_REVIEW_REQUEST", "ALERT", List(node.getMetadata.get("createdBy").toString), node.getMetadata.get("name").toString, Map.empty)
 				} catch {
 					case e: Exception => println("Error sending notification :" + e)
 				}
