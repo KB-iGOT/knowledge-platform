@@ -284,7 +284,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				try {
 					NotificationManager.sendNotification("CONTENT_REVIEW_REQUEST", "ALERT", List(node.getMetadata.get("createdBy").toString), node.getMetadata.get("name").toString, Map.empty)
 				} catch {
-					case e: Exception => println("Error sending notification :" + e)
+					case e: Exception => logger.info("Error while sending notification ", e)
 				}
 				response
 			}

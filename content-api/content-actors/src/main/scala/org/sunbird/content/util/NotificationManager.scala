@@ -1,43 +1,40 @@
 package org.sunbird.content.util
 
 import com.mashape.unirest.http.Unirest
-import org.sunbird.common.Platform
+import org.slf4j.{Logger, LoggerFactory}
+import org.sunbird.common.{JsonUtils, Platform}
 import org.sunbird.util.{HTTPResponse, HttpUtil}
-import scala.collection.JavaConverters._
 
 object NotificationManager {
 
+  private val logger: Logger = LoggerFactory.getLogger("NotificationManager")
+
   def sendNotification(subCategory: String, subType: String, userIds: List[String], title: String, data: Map[String, Any]): Unit = {
 
-    val userIdsJson = userIds.map(id => s""""$id"""").mkString("[", ",", "]")
+    logger.info("Notification construction started")
 
-    val placeholders = Map[String, Any]("title" -> title)
+    val placeholders = Map("title" -> title)
+    val message = Map("placeholders" -> placeholders, "data" -> data)
 
-    val message = Map[String, Any]("placeholders" -> toJsonString(placeholders), "data" -> toJsonString(data))
+    val bodyMap = Map(
+      "subCategory" -> subCategory,
+      "subType" -> subType,
+      "userIds" -> userIds,
+      "message" -> message
+    )
 
-    val body =
-      s"""
-    {
-      "subCategory": "$subCategory",
-      "subType": "$subType",
-      "userIds": $userIdsJson,
-      "message": ${toJsonString(message)}
-    }
-  """
+    val body = JsonUtils.serialize(bodyMap)
 
-    val url: String = Platform.getString("notification.api.url", "http://cb-notification-wrapper-service:8081/notifications/create")
-    val response = Unirest.post(url).headers(Map[String, String]("Content-Type" -> "application/json").asJava).body(body).asString()
+    val url = Platform.getString("notification.api.url", "http://cb-notification-wrapper-service:8081/notifications/create")
+    logger.info("Started sending notification with body {}", body)
+    val response = Unirest.post(url)
+      .header("Content-Type", "application/json")
+      .body(body)
+      .asString()
+
+    logger.info("Successfully sent notification {}", response)
+
     HTTPResponse(response.getStatus, response.getBody)
   }
 
-  private def toJsonString(map: Map[String, Any]): String = {
-    map.map {
-      case (k, v: String) => s""""$k":"$v""""
-      case (k, v: Int) => s""""$k":$v"""
-      case (k, v: Boolean) => s""""$k":$v"""
-      case (k, v: Double) => s""""$k":$v"""
-      case (k, v: List[_]) => s""""$k":[${v.map(x => s""""$x"""").mkString(",")}]"""
-      case (k, v) => s""""$k":"${v.toString}""""
-    }.mkString("{", ",", "}")
-  }
 }
