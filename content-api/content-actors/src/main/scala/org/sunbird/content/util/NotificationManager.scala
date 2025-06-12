@@ -10,7 +10,10 @@ object NotificationManager {
   def sendNotification(subCategory: String, subType: String, userIds: List[String], title: String, data: Map[String, Any]): Unit = {
 
     val userIdsJson = userIds.map(id => s""""$id"""").mkString("[", ",", "]")
-    val dataJson = toJsonString(data)
+
+    val placeholders = Map[String, Any]("title" -> title)
+
+    val message = Map[String, Any]("placeholders" -> toJsonString(placeholders), "data" -> toJsonString(data))
 
     val body =
       s"""
@@ -18,13 +21,12 @@ object NotificationManager {
       "subCategory": "$subCategory",
       "subType": "$subType",
       "userIds": $userIdsJson,
-      "title": "$title",
-      "data": $dataJson
+      "message": ${toJsonString(message)}
     }
   """
 
     val url: String = Platform.getString("notification.api.url", "http://cb-notification-wrapper-service:8081/notifications/create")
-    val response = Unirest.post(url).headers(Map[String, String]("Content-Type"->"application/json").asJava).body(body).asString()
+    val response = Unirest.post(url).headers(Map[String, String]("Content-Type" -> "application/json").asJava).body(body).asString()
     HTTPResponse(response.getStatus, response.getBody)
   }
 
