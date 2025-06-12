@@ -15,13 +15,11 @@ object NotificationManager {
     val body =
       s"""
     {
-      "request": {
-        "subCategory": "$subCategory",
-        "subType": "$subType",
-        "userIds": $userIdsJson,
-        "title": "$title",
-        "data": $dataJson
-      }
+      "subCategory": "$subCategory",
+      "subType": "$subType",
+      "userIds": $userIdsJson,
+      "title": "$title",
+      "data": $dataJson
     }
   """
 
