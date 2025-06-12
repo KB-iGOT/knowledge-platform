@@ -3,7 +3,8 @@ package org.sunbird.content.util
 import com.mashape.unirest.http.Unirest
 import org.slf4j.{Logger, LoggerFactory}
 import org.sunbird.common.{JsonUtils, Platform}
-import org.sunbird.util.{HTTPResponse, HttpUtil}
+import org.sunbird.util.HTTPResponse
+import scala.collection.JavaConverters._
 
 object NotificationManager {
 
@@ -13,15 +14,12 @@ object NotificationManager {
 
     logger.info("Notification construction started")
 
-    val placeholders = Map("title" -> title)
-    val message = Map("placeholders" -> placeholders, "data" -> data)
-
     val bodyMap = Map(
       "subCategory" -> subCategory,
       "subType" -> subType,
-      "userIds" -> userIds,
-      "message" -> message
-    )
+      "userIds" -> userIds.asJava,
+      "message" -> Map("placeholders" -> Map("title" -> title).asJava, "data" -> data.asJava).asJava
+    ).asJava
 
     val body = JsonUtils.serialize(bodyMap)
 
@@ -32,7 +30,7 @@ object NotificationManager {
       .body(body)
       .asString()
 
-    logger.info("Successfully sent notification {}", response)
+    logger.info("Successfully sent notification status: {}, body: {}", response.getStatus, response.getBody)
 
     HTTPResponse(response.getStatus, response.getBody)
   }
