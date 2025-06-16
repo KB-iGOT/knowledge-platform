@@ -1,7 +1,6 @@
 FROM sunbird/openjdk-java11-alpine:latest
 RUN apk update \
-    && apk add  unzip \
-    && apk add curl \
+    && apk add --no-cache unzip curl ffmpeg \
     && adduser -u 1001 -h /home/sunbird/ -D sunbird \
     && mkdir -p /home/sunbird
 RUN chown -R sunbird:sunbird /home/sunbird
