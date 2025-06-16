@@ -22,11 +22,20 @@ class DefaultMimeTypeMgrImpl(implicit ss: StorageService) extends BaseMimeTypeMa
 				TelemetryManager.log("Uploaded File MimeType is not same as Node (Object) MimeType. [Node (Object) MimeType: " + nodeMimeType + "]")
 				throw new ClientException("VALIDATION_ERROR", "Uploaded File MimeType is not same as Node (Object) MimeType.")
 			}
+		val isVideo = nodeMimeType.startsWith("video/")
+		val streamingUrlOpt: Option[String] = if (isVideo) {
+			Some(uploadStreamArtifactToCloud(uploadFile, objectId))
+		} else None
 		val result: Array[String] = uploadArtifactToCloud(uploadFile, objectId, filePath)
 		//TODO: depreciate s3Key. use cloudStorageKey instead
 		Future {
-			Map("identifier" -> objectId, "artifactUrl" -> result(1), "downloadUrl" -> result(1), "cloudStorageKey" -> result(0), "s3Key" -> result(0), "size" -> getCloudStoredFileSize(result(0)).asInstanceOf[AnyRef])
+			val baseMap = Map("identifier" -> objectId, "artifactUrl" -> result(1), "downloadUrl" -> result(1), "cloudStorageKey" -> result(0), "s3Key" -> result(0), "size" -> getCloudStoredFileSize(result(0)).asInstanceOf[AnyRef])
+			streamingUrlOpt match {
+				case Some(url) => baseMap + ("streamingUrl" -> url)
+				case None => baseMap
+			}
 		}
+
 	}
 
 	override def upload(objectId: String, node: Node, fileUrl: String, filePath: Option[String], params: UploadParams)(implicit ec: ExecutionContext): Future[Map[String, AnyRef]] = {

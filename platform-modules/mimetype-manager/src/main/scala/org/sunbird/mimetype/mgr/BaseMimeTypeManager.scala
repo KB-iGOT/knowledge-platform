@@ -4,7 +4,7 @@ import java.io.{File, FileInputStream, FileOutputStream, IOException}
 import java.net.URL
 import java.nio.file.{Files, Path, Paths}
 import java.util.zip.{ZipEntry, ZipFile, ZipOutputStream}
-
+import sys.process._
 import org.apache.commons.io.{FileUtils, FilenameUtils}
 import org.apache.commons.lang3.StringUtils
 import org.apache.commons.validator.routines.UrlValidator
@@ -301,5 +301,28 @@ class BaseMimeTypeManager(implicit ss: StorageService) {
 		Map("lastSubmittedOn"-> DateUtils.formatCurrentDate(), "reviewError" -> null, "status" -> newStatus)
 	}
 
+	def uploadStreamArtifactToCloud(
+																	 uploadedFile: File,
+																	 identifier: String
+																 ): String = {
+		val hlsDir = new File(s"/tmp/${identifier}_hls")
+		hlsDir.mkdirs()
+		val manifestName = "output.m3u8"
+		val ffmpegCmd =
+			s"ffmpeg -i ${uploadedFile.getAbsolutePath} -codec: copy -start_number 0 -hls_time 10 -hls_list_size 0 -f hls ${hlsDir.getAbsolutePath}/$manifestName"
+		val ffmpegResult = ffmpegCmd.!
+		if (ffmpegResult != 0) throw new RuntimeException("FFmpeg HLS conversion failed")
+
+		// Upload all HLS files to GCS under hls/{identifier}/
+		val gcsBasePath = s"hls/$identifier/"
+		var manifestUrl: String = ""
+		hlsDir.listFiles().foreach { f =>
+			val result: Array[String] = uploadArtifactToCloud(f, identifier, Some(gcsBasePath + f.getName))
+			if (f.getName == manifestName) {
+				manifestUrl = result(1) // This is the artifactUrl for the manifest
+			}
+		}
+		manifestUrl
+	}
 }
 
