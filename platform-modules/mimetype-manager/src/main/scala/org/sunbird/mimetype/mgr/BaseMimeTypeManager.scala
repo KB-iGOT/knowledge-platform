@@ -306,6 +306,10 @@ class BaseMimeTypeManager(implicit ss: StorageService) {
 																	 identifier: String
 																 ): String = {
 		val safeFile = sanitizeFileName(uploadedFile)
+		println(s"Checking file: ${safeFile.getAbsolutePath}")
+		println(s"File exists: ${safeFile.exists()}")
+		println("Files in /tmp:")
+		new File("/tmp").listFiles().foreach(f => println(f.getAbsolutePath))
 		val hlsDir = new File(s"/tmp/${identifier}_hls")
 		hlsDir.mkdirs()
 		val manifestName = "output.m3u8"
