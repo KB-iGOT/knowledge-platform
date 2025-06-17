@@ -305,50 +305,53 @@ class BaseMimeTypeManager(implicit ss: StorageService) {
 																	 uploadedFile: File,
 																	 identifier: String
 																 ): String = {
-		val safeFile = sanitizeFileName(uploadedFile)
-		println(s"Checking file: ${safeFile.getAbsolutePath}")
+		val sanitizedName = sanitizeFileName(uploadedFile)
+		val safeFile = new File(s"/tmp/$sanitizedName")
+
+		// Copy original file to /tmp with safe name
+		java.nio.file.Files.copy(
+			uploadedFile.toPath,
+			safeFile.toPath,
+			java.nio.file.StandardCopyOption.REPLACE_EXISTING
+		)
+
+		println(s"Copied file to: ${safeFile.getAbsolutePath}")
 		println(s"File exists: ${safeFile.exists()}")
 		println("Files in /tmp:")
 		new File("/tmp").listFiles().foreach(f => println(f.getAbsolutePath))
+
 		val hlsDir = new File(s"/tmp/${identifier}_hls")
 		hlsDir.mkdirs()
+
 		val manifestName = "output.m3u8"
 		var manifestUrl: String = ""
+
 		try {
 			val ffmpegCmd =
 				s"""ffmpeg -i "${safeFile.getAbsolutePath}" -codec: copy -start_number 0 -hls_time 10 -hls_list_size 0 -f hls "${hlsDir.getAbsolutePath}/$manifestName""""
 			val ffmpegResult = ffmpegCmd.!
 			if (ffmpegResult != 0) throw new RuntimeException("FFmpeg HLS conversion failed")
 
-			// Upload all HLS files to GCS under hls/{identifier}/
 			val gcsBasePath = s"hls/$identifier/"
 			hlsDir.listFiles().foreach { f =>
 				val result: Array[String] = uploadArtifactToCloud(f, identifier, Some(gcsBasePath + f.getName))
 				if (f.getName == manifestName) {
-					manifestUrl = result(1) // This is the artifactUrl for the manifest
+					manifestUrl = result(1)
 				}
 			}
 			manifestUrl
 		} finally {
-			// Cleanup: delete HLS directory and uploaded file
-			if (hlsDir.exists()) {
-				hlsDir.listFiles().foreach(_.delete())
-				hlsDir.delete()
-			}
+			// Clean up
+			//hlsDir.listFiles().foreach(_.delete())
+			//hlsDir.delete()
 			if (safeFile.exists()) {
 				//safeFile.delete()
 			}
 		}
 	}
 
-	def sanitizeFileName(file: File): File = {
-		val sanitized = file.getName.replaceAll("\\s+", "-")
-		if (sanitized == file.getName) file
-		else {
-			val sanitizedFile = new File(file.getParent, sanitized)
-			file.renameTo(sanitizedFile)
-			sanitizedFile
-		}
+	def sanitizeFileName(file: File): String = {
+		file.getName.replaceAll("\\s+", "-").replaceAll("[^a-zA-Z0-9_.\\-]", "_")
 	}
 }
 
