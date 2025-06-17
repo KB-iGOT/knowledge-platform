@@ -336,7 +336,7 @@ class BaseMimeTypeManager(implicit ss: StorageService) {
 				hlsDir.delete()
 			}
 			if (safeFile.exists()) {
-				safeFile.delete()
+				//safeFile.delete()
 			}
 		}
 	}
