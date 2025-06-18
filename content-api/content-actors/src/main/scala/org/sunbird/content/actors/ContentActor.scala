@@ -282,18 +282,24 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			else {
 				val response = ReviewManager.review(request, node)
 				try {
+					val nodeIdOpt = Option(node.getMetadata.get("identifier")).map(_.toString).filter(StringUtils.isNotBlank)
 					val reviewers = node.getMetadata.get("reviewerIDs") match {
 						case arr: Array[String] => arr.toList
 						case list: java.util.List[_] => list.asScala.toList.map(_.toString)
 						case other => throw new RuntimeException(s"Unexpected type for reviewerIDs: ${other.getClass}")
 					}
-					NotificationManager.sendNotification(
-						"CONTENT_REVIEW_REQUEST",
-						"ALERT",
-						reviewers,
-						node.getMetadata.get("name").asInstanceOf[String],
-						Map[String, Any]("id" -> node.getMetadata.get("identifier").asInstanceOf[String])
-					)
+					nodeIdOpt match {
+						case Some(nodeId) =>
+							NotificationManager.sendNotification(
+								"CONTENT_REVIEW_REQUEST",
+								"ALERT",
+								reviewers,
+								Option(node.getMetadata.get("name")).map(_.toString).getOrElse("Unnamed Content"),
+								Map[String, Any]("id" -> nodeId)
+							)
+						case None =>
+							logger.warn(s"Skipping notification: 'identifier' is missing or blank for node: ${node.getIdentifier}")
+					}
 				} catch {
 					case e: Exception => logger.info("Error while sending notification ", e)
 				}
