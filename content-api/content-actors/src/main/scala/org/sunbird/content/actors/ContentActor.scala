@@ -210,7 +210,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		}
 		DataNode.update(request, dataModifier).map(node => {
 			val identifier: String = node.getIdentifier.replace(".img", "")
-			if (request.getContext.getOrDefault("sendNotification", false).asInstanceOf[Boolean]) {
+			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean]) {
 				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
