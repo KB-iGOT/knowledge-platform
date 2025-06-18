@@ -209,8 +209,9 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			request.getRequest.put("cqfVersion", System.currentTimeMillis().toString)
 		}
 		DataNode.update(request, dataModifier).map(node => {
-			try {
-				if (request.getContext.getOrDefault("sendNotification", false).asInstanceOf[Boolean]) {
+			val identifier: String = node.getIdentifier.replace(".img", "")
+			if (request.getContext.getOrDefault("sendNotification", false).asInstanceOf[Boolean]) {
+				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
 						"UPDATE",
@@ -218,11 +219,10 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						node.getMetadata.get("name").asInstanceOf[String],
 						Map[String, Any]("id" -> node.getMetadata.get("identifier").asInstanceOf[String])
 					)
+				} catch {
+					case e: Exception => logger.info("Error while sending notification ", e)
 				}
-			} catch {
-				case e: Exception => logger.info("Error while sending notification ", e)
 			}
-			val identifier: String = node.getIdentifier.replace(".img", "")
 			ResponseHandler.OK.put("node_id", identifier).put("identifier", identifier)
 				.put("versionKey", node.getMetadata.get("versionKey"))
 		})
