@@ -209,6 +209,19 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			request.getRequest.put("cqfVersion", System.currentTimeMillis().toString)
 		}
 		DataNode.update(request, dataModifier).map(node => {
+			try {
+				if (request.getContext.getOrDefault("sendNotification", false).asInstanceOf[Boolean]) {
+					NotificationManager.sendNotification(
+						"CONTENT_EDITED",
+						"UPDATE",
+						List(node.getMetadata.get("crcoeatedBy").asInstanceOf[String]),
+						node.getMetadata.get("name").asInstanceOf[String],
+						Map[String, Any]("id" -> node.getMetadata.get("identifier").asInstanceOf[String])
+					)
+				}
+			} catch {
+				case e: Exception => logger.info("Error while sending notification ", e)
+			}
 			val identifier: String = node.getIdentifier.replace(".img", "")
 			ResponseHandler.OK.put("node_id", identifier).put("identifier", identifier)
 				.put("versionKey", node.getMetadata.get("versionKey"))
@@ -274,33 +287,44 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		val readReq = new Request(request)
 		readReq.put("identifier", identifier)
 		readReq.put("mode", "edit")
+
 		DataNode.read(readReq).map(node => {
-			if (null != node & StringUtils.isNotBlank(node.getObjectType))
+			if (null != node && StringUtils.isNotBlank(node.getObjectType))
 				request.getContext.put("schemaName", node.getObjectType.toLowerCase())
+
 			if (StringUtils.equalsAnyIgnoreCase("Processing", node.getMetadata.getOrDefault("status", "").asInstanceOf[String]))
 				throw new ClientException("ERR_NODE_ACCESS_DENIED", "Review Operation Can't Be Applied On Node Under Processing State")
 			else {
 				val response = ReviewManager.review(request, node)
 				try {
+					val nodeIdOpt = Option(node.getMetadata.get("identifier")).map(_.toString).filter(StringUtils.isNotBlank)
+
 					val reviewers = node.getMetadata.get("reviewerIDs") match {
 						case arr: Array[String] => arr.toList
 						case list: java.util.List[_] => list.asScala.toList.map(_.toString)
 						case other => throw new RuntimeException(s"Unexpected type for reviewerIDs: ${other.getClass}")
 					}
-					NotificationManager.sendNotification(
-						"CONTENT_REVIEW_REQUEST",
-						"ALERT",
-						reviewers,
-						node.getMetadata.get("name").asInstanceOf[String],
-						Map[String, Any]("id" -> node.getMetadata.get("identifier").asInstanceOf[String])
-					)
+
+					nodeIdOpt match {
+						case Some(nodeId) =>
+							NotificationManager.sendNotification(
+								"CONTENT_REVIEW_REQUEST",
+								"ALERT",
+								reviewers,
+								Option(node.getMetadata.get("name")).map(_.toString).getOrElse("Unnamed Content"),
+								Map[String, Any]("id" -> nodeId)
+							)
+						case None =>
+							logger.warn(s"Skipping notification: 'identifier' is missing or blank for node: ${node.getIdentifier}")
+					}
 				} catch {
-					case e: Exception => logger.info("Error while sending notification ", e)
+					case e: Exception => logger.error("Error while sending notification ", e)
 				}
 				response
 			}
 		}).flatMap(f => f)
 	}
+
 
 	def populateDefaultersForCreation(request: Request) = {
 		setDefaultsBasedOnMimeType(request, ContentParams.create.name)
