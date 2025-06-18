@@ -298,12 +298,12 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				val response = ReviewManager.review(request, node)
 				try {
 					val nodeIdOpt = Option(node.getMetadata.get("identifier")).map(_.toString).filter(StringUtils.isNotBlank)
-
 					val reviewers = node.getMetadata.get("reviewerIDs") match {
 						case arr: Array[String] => arr.toList
 						case list: java.util.List[_] => list.asScala.toList.map(_.toString)
 						case other => throw new RuntimeException(s"Unexpected type for reviewerIDs: ${other.getClass}")
 					}
+
 
 					nodeIdOpt match {
 						case Some(nodeId) =>
