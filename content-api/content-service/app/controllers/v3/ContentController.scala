@@ -60,6 +60,7 @@ class ContentController @Inject()(@Named(ActorNames.CONTENT_ACTOR) contentActor:
         val contentRequest = getRequest(content, headers, "updateContent")
         setRequestContext(contentRequest, version, objectType, schemaName)
         contentRequest.getContext.put("identifier", identifier);
+        contentRequest.getContext.put("sendSpvPublisherNotification", Boolean.box(true))
         getResult(ApiId.UPDATE_CONTENT, contentActor, contentRequest)
     }
 

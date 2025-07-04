@@ -10,12 +10,14 @@ object NotificationManager {
 
   private val logger: Logger = LoggerFactory.getLogger("NotificationManager")
 
-  def sendNotification(subCategory: String, subType: String, userIds: List[String], title: String, data: collection.Map[String, Any]): Unit = {
+  def sendNotification(subCategory: String, orgId:String, roles:List[String], subType: String, userIds: List[String], title: String, data: collection.Map[String, Any]): Unit = {
 
     logger.info("Notification construction started")
 
     val bodyMap = Map(
       "subCategory" -> subCategory,
+      "orgId" -> orgId,
+      "roles" -> roles,
       "subType" -> subType,
       "userIds" -> userIds.asJava,
       "message" -> Map("placeholders" -> Map("title" -> title).asJava, "data" -> data.asJava).asJava

@@ -212,10 +212,56 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		}
 		DataNode.update(request, dataModifier).map(node => {
 			val identifier: String = node.getIdentifier.replace(".img", "")
+			try {
+				if (Option(request.getContext.get("sendSpvPublisherNotification")).contains(true)) {
+					if (Option(node.getMetadata.get("reviewStatus")).contains("SentToPublish")) {
+						val publisherList: List[String] = Option(node.getMetadata.get("publisherIDs")) match {
+							case Some(arr: Array[_]) =>
+								arr.collect { case s: String => s }.toList
+							case Some(list: java.util.List[_]) =>
+								list.asScala.collect { case s: String => s }.toList
+							case None => Nil
+							case Some(other) =>
+								throw new RuntimeException(s"Unexpected type for publisherIDs: ${other.getClass}")
+						}
+
+						val name = node.getMetadata.get("name").asInstanceOf[String]
+
+						if (publisherList.nonEmpty) {
+							NotificationManager.sendNotification(
+								"CONTENT_SPV_PUBLISHED",
+								null,
+								null,
+								"UPDATE",
+								publisherList,
+								name,
+								Map("id" -> identifier)
+							)
+						} else {
+							val roles = List("SPV_PUBLISHER")
+							val orgId = Platform.config.getString("spv.publisher.org.id")
+							NotificationManager.sendNotification(
+								"CONTENT_SPV_PUBLISHED",
+								orgId,
+								roles,
+								"UPDATE",
+								null,
+								name,
+								Map("id" -> identifier)
+							)
+						}
+					}
+				}
+			} catch {
+				case e: Exception =>
+					logger.warn("Error while sending publish notification", e)
+			}
 			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean]) {
 				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
+						null,
+						null,
 						"UPDATE",
 						List(node.getMetadata.get("createdBy").asInstanceOf[String]),
 						node.getMetadata.get("name").asInstanceOf[String],
@@ -305,6 +351,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					}
 					NotificationManager.sendNotification(
 						"CONTENT_REVIEW_REQUEST",
+						null,
+						null,
 						"ALERT",
 						reviewers,
 						node.getMetadata.get("name").asInstanceOf[String],
@@ -406,6 +454,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			try {
 				NotificationManager.sendNotification(
 					"CONTENT_EDITED",
+					null,
+					null,
 					"UPDATE",
 					List(node.getMetadata.get("createdBy").asInstanceOf[String]),
 					node.getMetadata.get("name").asInstanceOf[String],
@@ -443,6 +493,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					if(node.getMetadata.containsKey("reviewerIDs")) {
 						NotificationManager.sendNotification(
 							"CONTENT_REJECTED",
+							null,
+							null,
 							"UPDATE",
 							List(node.getMetadata.get("createdBy").asInstanceOf[String]),
 							node.getMetadata.get("name").asInstanceOf[String],
