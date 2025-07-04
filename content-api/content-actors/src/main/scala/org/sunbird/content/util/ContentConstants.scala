@@ -56,4 +56,13 @@ object ContentConstants {
     val LAST_UPDATED_ON:String = "lastUpdatedOn"
     val VERSION:String = "version"
     val COPY_SCHEME:String = "copyScheme"
+    val SEND_SPV_PUBLISHER_NOTIFICATION ="sendSpvPublisherNotification"
+    val COURSE_CATEGORY="courseCategory"
+    val REVIEW_STATUS ="reviewStatus"
+    val SENT_TO_PUBLISH ="SentToPublish"
+    val PUBLISHER_IDS="publisherIDs"
+    val CONTENT_SPV_PUBLISHED ="CONTENT_SPV_PUBLISHED"
+    val UPDATE ="UPDATE"
+    val NAME ="name"
+    val SPV_PUBLISHER ="SPV_PUBLISHER"
 }

@@ -213,9 +213,11 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		DataNode.update(request, dataModifier).map(node => {
 			val identifier: String = node.getIdentifier.replace(".img", "")
 			try {
-				if (Option(request.getContext.get("sendSpvPublisherNotification")).contains(true)) {
-					if (Option(node.getMetadata.get("reviewStatus")).contains("SentToPublish")) {
-						val publisherList: List[String] = Option(node.getMetadata.get("publisherIDs")) match {
+				val courseCategory = Option(node.getMetadata.get(ContentConstants.COURSE_CATEGORY));
+				if (courseCategory.isDefined &&
+					Option(request.getContext.get(ContentConstants.SEND_SPV_PUBLISHER_NOTIFICATION)).contains(true) &&
+					Option(node.getMetadata.get(ContentConstants.REVIEW_STATUS)).contains(ContentConstants.SENT_TO_PUBLISH)) {
+						val publisherList: List[String] = Option(node.getMetadata.get(ContentConstants.PUBLISHER_IDS)) match {
 							case Some(arr: Array[_]) =>
 								arr.collect { case s: String => s }.toList
 							case Some(list: java.util.List[_]) =>
@@ -225,33 +227,32 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 								throw new RuntimeException(s"Unexpected type for publisherIDs: ${other.getClass}")
 						}
 
-						val name = node.getMetadata.get("name").asInstanceOf[String]
+						val name = node.getMetadata.get(ContentConstants.NAME).asInstanceOf[String]
 
 						if (publisherList.nonEmpty) {
 							NotificationManager.sendNotification(
-								"CONTENT_SPV_PUBLISHED",
+								ContentConstants.CONTENT_SPV_PUBLISHED,
 								null,
 								null,
-								"UPDATE",
+								ContentConstants.UPDATE,
 								publisherList,
 								name,
 								Map("id" -> identifier)
 							)
 						} else {
-							val roles = List("SPV_PUBLISHER")
+							val roles = List(ContentConstants.SPV_PUBLISHER)
 							val orgId = Platform.config.getString("spv.publisher.org.id")
 							NotificationManager.sendNotification(
-								"CONTENT_SPV_PUBLISHED",
+								ContentConstants.CONTENT_SPV_PUBLISHED,
 								orgId,
 								roles,
-								"UPDATE",
+								ContentConstants.UPDATE,
 								null,
 								name,
 								Map("id" -> identifier)
 							)
 						}
 					}
-				}
 			} catch {
 				case e: Exception =>
 					logger.warn("Error while sending publish notification", e)
