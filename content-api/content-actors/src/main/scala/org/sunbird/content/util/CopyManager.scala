@@ -376,32 +376,35 @@ object CopyManager {
         }
 
         //Generating hierarchy update metadata for the QuestionSet object
-        extractFullHierarchies(questionSetHierarchy).foreach {
-            case (_, fullTreeMap) =>
-                val hierarchyDataNode = questionSetHierarchy.get(ContentConstants.HIERARCHY).asInstanceOf[util.Map[String, util.Map[String, Object]]]
-                val hierarchyRequest = new util.HashMap[String, Object]()
-                val hierarchy = new util.HashMap[String, Object]()
-                val nodesModified = new util.HashMap[String, Object]()
-                val requestDataMap = new util.HashMap[String, Object]()
+        if (MapUtils.isNotEmpty(questionSetHierarchy)) {
+            extractFullHierarchies(questionSetHierarchy).foreach {
+                case (_, fullTreeMap) =>
+                    val hierarchyDataNode = questionSetHierarchy.get(ContentConstants.HIERARCHY).asInstanceOf[util.Map[String, util.Map[String, Object]]]
+                    val hierarchyRequest = new util.HashMap[String, Object]()
+                    val hierarchy = new util.HashMap[String, Object]()
+                    val nodesModified = new util.HashMap[String, Object]()
+                    val requestDataMap = new util.HashMap[String, Object]()
 
-                fullTreeMap.foreach { case (key, _) =>
-                    val mapValue = hierarchyDataNode.get(key)
-                    if (mapValue.containsKey(ContentConstants.METADATA)) {
-                        if (mapValue != null) {
-                            nodesModified.put(key ,mapValue)
-                        }
-                    } else {
-                        if (mapValue != null) {
-                            hierarchy.put(key, mapValue)
+                    fullTreeMap.foreach { case (key, _) =>
+                        val mapValue = hierarchyDataNode.get(key)
+                        if (mapValue.containsKey(ContentConstants.METADATA)) {
+                            if (mapValue != null) {
+                                nodesModified.put(key ,mapValue)
+                            }
+                        } else {
+                            if (mapValue != null) {
+                                hierarchy.put(key, mapValue)
+                            }
                         }
                     }
-                }
-                hierarchyRequest.put(ContentConstants.HIERARCHY, hierarchy)
-                hierarchyRequest.put(ContentConstants.NODES_MODIFIED, nodesModified)
-                requestDataMap.put(ContentConstants.DATA, hierarchyRequest)
-                updateQuestionSetHierarchy(requestDataMap) // Call the Update QuestionSet Hierarchy API
+                    hierarchyRequest.put(ContentConstants.HIERARCHY, hierarchy)
+                    hierarchyRequest.put(ContentConstants.NODES_MODIFIED, nodesModified)
+                    requestDataMap.put(ContentConstants.DATA, hierarchyRequest)
+                    updateQuestionSetHierarchy(requestDataMap) // Call the Update QuestionSet Hierarchy API
 
+            }
         }
+
 
         val hierarchyRequest = new Request(request)
         hierarchyRequest.putAll(updateHierarchyRequest)
