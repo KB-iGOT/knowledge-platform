@@ -511,6 +511,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			val versionKey = metadata.getOrDefault("versionKey", "").asInstanceOf[String]
 			val contentType = metadata.getOrDefault("contentType", "").asInstanceOf[String]
 			val mimeType = metadata.getOrDefault("mimeType", "").asInstanceOf[String]
+			val appIcon = metadata.getOrDefault("appIcon", "").asInstanceOf[String]
 
 			val creationFutures = languages.asScala.map { lang =>
 				val contentMap = new java.util.HashMap[String, AnyRef]()
@@ -527,6 +528,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				contentMap.put("organisation", organisation)
 				contentMap.put("creatorContacts", creatorContacts)
 				contentMap.put("name", name + " - " + lang.capitalize)
+				contentMap.put("appIcon", appIcon)
 
 				val createRequest = new Request()
 				createRequest.setOperation("createContent")
