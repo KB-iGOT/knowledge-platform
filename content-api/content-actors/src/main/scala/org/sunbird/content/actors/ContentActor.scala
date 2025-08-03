@@ -302,15 +302,18 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					val reviewers = node.getMetadata.get("reviewerIDs") match {
 						case arr: Array[String] => arr.toList
 						case list: java.util.List[_] => list.asScala.toList.map(_.toString)
-						case other => throw new RuntimeException(s"Unexpected type for reviewerIDs: ${other.getClass}, for Id: $identifier")
 					}
-					NotificationManager.sendNotification(
-						"CONTENT_REVIEW_REQUEST",
-						"ALERT",
-						reviewers,
-						node.getMetadata.get("name").asInstanceOf[String],
-						Map[String, Any]("id" -> identifier)
-					)
+					if (reviewers.nonEmpty) {
+						NotificationManager.sendNotification(
+							"CONTENT_REVIEW_REQUEST",
+							"ALERT",
+							reviewers,
+							node.getMetadata.get("name").asInstanceOf[String],
+							Map[String, Any]("id" -> identifier)
+						)
+					} else {
+						logger.warn("No reviewers found for content with identifier: " + identifier)
+					}
 				} catch {
 					case e: Exception => logger.info("Error while sending notification ", e)
 				}
@@ -511,8 +514,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			val versionKey = metadata.getOrDefault("versionKey", "").asInstanceOf[String]
 			val contentType = metadata.getOrDefault("contentType", "").asInstanceOf[String]
 			val mimeType = metadata.getOrDefault("mimeType", "").asInstanceOf[String]
-			val appIcon = metadata.getOrDefault("appIcon", "").asInstanceOf[String]
 			val posterImage = metadata.getOrDefault("posterImage", "").asInstanceOf[String]
+			val appIcon = metadata.getOrDefault("appIcon", "").asInstanceOf[String]
 
 			val creationFutures = languages.asScala.map { lang =>
 				val contentMap = new java.util.HashMap[String, AnyRef]()
@@ -633,7 +636,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		confirmReadReq.put("mode", "edit")
 
 		DataNode.read(confirmReadReq).flatMap { confirmedNode =>
-			val latestStatus = confirmedNode.getMetadata.getOrDefault("status", "").asInstanceOf[String]
+			val latestStatus = "Review"
 			val languageMapRaw = confirmedNode.getMetadata.getOrDefault("languageMapV1", new util.HashMap[String, AnyRef]())
 			val languageMap = languageMapRaw match {
 				case s: String => JsonUtils.deserialize(s, classOf[java.util.Map[String, AnyRef]])
@@ -641,7 +644,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				case _ => new util.HashMap[String, AnyRef]()
 			}
 			logger.info("ContentActor: syncLanguageMapAfterReview - latestStatus: " + latestStatus + ", languageMap: " + languageMap)
-			if (StringUtils.equalsIgnoreCase(latestStatus, "Review") && MapUtils.isNotEmpty(languageMap)) {
+			if (MapUtils.isNotEmpty(languageMap)) {
 				val updatedLanguageMap = new util.HashMap[String, AnyRef]()
 				languageMap.forEach(new java.util.function.BiConsumer[String, AnyRef] {
 					override def accept(lang: String, entry: AnyRef): Unit = {
@@ -688,7 +691,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 
 				Future.sequence(updateFutures).map(_ => ResponseHandler.OK())
 			} else {
-			Future.successful(ResponseHandler.OK())
+				Future.successful(ResponseHandler.OK())
 			}
 		}
 	}
