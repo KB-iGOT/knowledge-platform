@@ -19,9 +19,16 @@ import org.sunbird.utils.{HierarchyConstants, HierarchyErrorCodes}
 
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future}
+import org.sunbird.cache.impl.RedisCache
+import org.sunbird.managers.HierarchyManager
+import org.sunbird.managers.HierarchyManager.hierarchyPrefix
+import org.sunbird.util.RequestUtil
+
+import scala.collection.Map
 
 object DiscardManager {
     private val CONTENT_DISCARD_STATUS = Platform.getStringList("content.discard.status", util.Arrays.asList("Draft", "FlagDraft"))
+
 
     @throws[Exception]
     def discard(request: Request)(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Response] = {
@@ -111,7 +118,7 @@ object DiscardManager {
                     readNodeReq.put("objectType", "Content")
                     readNodeReq.put("fields", new util.ArrayList[String]())
                     readNodeReq.put("identifier", id)
-                    readNodeReq.put("mode", "edit")
+                    readNodeReq.put("mode", "read")
 
                     DataNode.read(readNodeReq).flatMap { node =>
                         val nodeMetadata: util.Map[String, AnyRef] = NodeUtil.serialize(discardedNode, null, readReq.getContext.get("schemaName").asInstanceOf[String], readReq.getContext.get("version").asInstanceOf[String])
@@ -132,7 +139,8 @@ object DiscardManager {
                         put("schemaName", "content")
                         put("identifier", id)
                         }})
-                        DataNode.update(updateReq).map(_ => ())
+                        RedisCache.delete(id)
+                        DataNode.systemUpdate(updateReq, util.Arrays.asList(node),"", None)
                     }
                     }
                     Future.sequence(updateFutures).map(_ => ())
