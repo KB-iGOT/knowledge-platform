@@ -646,10 +646,19 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			logger.info("ContentActor: syncLanguageMapAfterReview - latestStatus: " + latestStatus + ", languageMap: " + languageMap)
 			if (MapUtils.isNotEmpty(languageMap)) {
 				val updatedLanguageMap = new util.HashMap[String, AnyRef]()
+				var updatedBaseLanguageMap = new util.HashMap[String, AnyRef]()
 				languageMap.forEach(new java.util.function.BiConsumer[String, AnyRef] {
 					override def accept(lang: String, entry: AnyRef): Unit = {
 					val entryMap = new util.HashMap[String, AnyRef]()
 					entryMap.putAll(entry.asInstanceOf[java.util.Map[String, AnyRef]])
+						// Check if "isBaseLang" == true
+						val isBaseLang = entryMap.get("isBaseLang") match {
+							case b: java.lang.Boolean => b.booleanValue()
+							case _ => false
+						}
+						if (isBaseLang) {
+							updatedBaseLanguageMap.putAll(entryMap)
+						}
 					if (identifier == entryMap.get("id")) {
 						entryMap.put("status", latestStatus)
 					}
@@ -657,8 +666,9 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					}
 				})
 
-				val updateFutures = languageMap.asScala.toSeq.map { case (_, v) =>
+				val updateFutures = updatedBaseLanguageMap.asScala.toSeq.map { case (_, v) =>
 					val id = v.asInstanceOf[java.util.Map[String, AnyRef]].get("id").asInstanceOf[String]
+					logger.info("ContentActor: syncLanguageMapAfterReview called for baseLangId: " + id)
 					val readNodeReq = new Request()
 					readNodeReq.setContext(new util.HashMap[String, AnyRef]() {{
 						put("graph_id", "domain")
