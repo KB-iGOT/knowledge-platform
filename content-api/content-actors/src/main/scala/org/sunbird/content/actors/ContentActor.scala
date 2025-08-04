@@ -551,6 +551,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			Future.sequence(creationFutures).flatMap { createdEntries =>
 				// Combine all entries (existing + new + baseLang) into one map with lowercase keys
 				val finalLangMap = new java.util.HashMap[String, AnyRef]()
+				val baseLangMap = new java.util.HashMap[String, AnyRef]()
 				// Add existing entries
 				existingLanguageMap.forEach(new java.util.function.BiConsumer[String, AnyRef] {
 					override def accept(k: String, v: AnyRef): Unit = finalLangMap.put(k.toLowerCase, v)
@@ -566,6 +567,13 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				}
 				// Ensure baseLang is present
 				finalLangMap.put(baseLang.toLowerCase, new java.util.HashMap[String, AnyRef]() {{
+					put("id", sourceCollectionId)
+					put("status", status)
+					put("createdBy", createdBy)
+					put("isBaseLang", Boolean.box(true))
+				}})
+
+				baseLangMap.put(baseLang.toLowerCase, new java.util.HashMap[String, AnyRef]() {{
 					put("id", sourceCollectionId)
 					put("status", status)
 					put("createdBy", createdBy)
@@ -591,11 +599,15 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 
 					DataNode.read(readReq).flatMap { node =>
 						val nodeVersionKey = node.getMetadata.getOrDefault("versionKey", "").asInstanceOf[String]
-
+						val status = node.getMetadata.get(ContentConstants.STATUS).asInstanceOf[String]
 						val updateReq = new Request()
 						updateReq.setOperation("systemUpdate")
 						updateReq.setRequest(new java.util.HashMap[String, AnyRef]() {{
-							put("languageMapV1", finalLangMap)
+							if (status.equalsIgnoreCase("Live")) {
+								put("languageMapV1", finalLangMap)
+							} else {
+								put("languageMapV1", baseLangMap)
+							}
 							put("versionKey", nodeVersionKey)
 						}})
 						updateReq.setContext(new java.util.HashMap[String, AnyRef]() {{
@@ -657,7 +669,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 							case _ => false
 						}
 						if (isBaseLang) {
-							updatedBaseLanguageMap.putAll(entry.asInstanceOf[java.util.Map[String, AnyRef]])
+							updatedBaseLanguageMap.put(lang.toLowerCase, entry.asInstanceOf[java.util.Map[String, AnyRef]])
 						}
 					if (identifier == entryMap.get("id")) {
 						entryMap.put("status", latestStatus)
