@@ -646,7 +646,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			logger.info("ContentActor: syncLanguageMapAfterReview - latestStatus: " + latestStatus + ", languageMap: " + languageMap)
 			if (MapUtils.isNotEmpty(languageMap)) {
 				val updatedLanguageMap = new util.HashMap[String, AnyRef]()
-				var updatedBaseLanguageMap = new util.HashMap[String, AnyRef]()
+				val updatedBaseLanguageMap = new util.HashMap[String, AnyRef]()
 				languageMap.forEach(new java.util.function.BiConsumer[String, AnyRef] {
 					override def accept(lang: String, entry: AnyRef): Unit = {
 					val entryMap = new util.HashMap[String, AnyRef]()
@@ -657,7 +657,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 							case _ => false
 						}
 						if (isBaseLang) {
-							updatedBaseLanguageMap.putAll(entryMap)
+							updatedBaseLanguageMap.putAll(entry.asInstanceOf[java.util.Map[String, AnyRef]])
 						}
 					if (identifier == entryMap.get("id")) {
 						entryMap.put("status", latestStatus)
@@ -665,7 +665,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					updatedLanguageMap.put(lang.toLowerCase, entryMap)
 					}
 				})
-
+				logger.info("ContentActor: syncLanguageMapAfterReview - after language update latestStatus: " + latestStatus + ", updatedLanguageMap: " + updatedLanguageMap + " , updatedLanguageBasemAO" + updatedBaseLanguageMap)
 				val updateFutures = updatedBaseLanguageMap.asScala.toSeq.map { case (_, v) =>
 					val id = v.asInstanceOf[java.util.Map[String, AnyRef]].get("id").asInstanceOf[String]
 					logger.info("ContentActor: syncLanguageMapAfterReview called for baseLangId: " + id)
