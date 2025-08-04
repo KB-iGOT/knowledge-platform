@@ -659,10 +659,10 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			if (MapUtils.isNotEmpty(languageMap)) {
 				val updatedLanguageMap = new util.HashMap[String, AnyRef]()
 				val updatedBaseLanguageMap = new util.HashMap[String, AnyRef]()
-				languageMap.forEach(new java.util.function.BiConsumer[String, AnyRef] {
+				updatedLanguageMap.forEach(new java.util.function.BiConsumer[String, AnyRef] {
 					override def accept(lang: String, entry: AnyRef): Unit = {
-					val entryMap = new util.HashMap[String, AnyRef]()
-					entryMap.putAll(entry.asInstanceOf[java.util.Map[String, AnyRef]])
+						val entryMap = new util.HashMap[String, AnyRef]()
+						entryMap.putAll(entry.asInstanceOf[java.util.Map[String, AnyRef]])
 						// Check if "isBaseLang" == true
 						val isBaseLang = entryMap.get("isBaseLang") match {
 							case b: java.lang.Boolean => b.booleanValue()
@@ -671,43 +671,61 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						if (isBaseLang) {
 							updatedBaseLanguageMap.put(lang.toLowerCase, entry.asInstanceOf[java.util.Map[String, AnyRef]])
 						}
-					if (identifier == entryMap.get("id")) {
-						entryMap.put("status", latestStatus)
-					}
-					updatedLanguageMap.put(lang.toLowerCase, entryMap)
 					}
 				})
-				logger.info("ContentActor: syncLanguageMapAfterReview - after language update latestStatus: " + latestStatus + ", updatedLanguageMap: " + updatedLanguageMap + " , updatedLanguageBasemAO" + updatedBaseLanguageMap)
 				val updateFutures = updatedBaseLanguageMap.asScala.toSeq.map { case (_, v) =>
 					val id = v.asInstanceOf[java.util.Map[String, AnyRef]].get("id").asInstanceOf[String]
-					logger.info("ContentActor: syncLanguageMapAfterReview called for baseLangId: " + id)
 					val readNodeReq = new Request()
-					readNodeReq.setContext(new util.HashMap[String, AnyRef]() {{
-						put("graph_id", "domain")
-						put("version", "1.0")
-						put("objectType", "Content")
-						put("schemaName", "content")
-					}})
+					readNodeReq.setContext(new util.HashMap[String, AnyRef]() {
+						{
+							put("graph_id", "domain")
+							put("version", "1.0")
+							put("objectType", "Content")
+							put("schemaName", "content")
+						}
+					})
 					readNodeReq.setObjectType("Content")
 					readNodeReq.put("identifier", id)
 					readNodeReq.put("mode", "read")
 
 					DataNode.read(readNodeReq).flatMap { n =>
-					val versionKey = n.getMetadata.getOrDefault("versionKey", "").asInstanceOf[String]
-					val updateReq = new Request()
-					updateReq.setOperation("systemUpdate")
-					updateReq.setRequest(new util.HashMap[String, AnyRef]() {{
-						put("languageMapV1", updatedLanguageMap)
-						put("versionKey", versionKey)
-					}})
-					updateReq.setContext(new util.HashMap[String, AnyRef]() {{
-						put("graph_id", "domain")
-						put("version", "1.0")
-						put("objectType", "Content")
-						put("schemaName", "content")
-						put("identifier", id)
-					}})
-					systemUpdate(updateReq)
+						val versionKey = n.getMetadata.getOrDefault("versionKey", "").asInstanceOf[String]
+						val baseLanguageMapRaw = n.getMetadata.getOrDefault("languageMapV1", new util.HashMap[String, AnyRef]())
+						val baseLanguageMap = baseLanguageMapRaw match {
+							case s: String => JsonUtils.deserialize(s, classOf[java.util.Map[String, AnyRef]])
+							case m: java.util.Map[_, _] => m.asInstanceOf[java.util.Map[String, AnyRef]]
+							case _ => new util.HashMap[String, AnyRef]()
+						}
+						baseLanguageMap.forEach(new java.util.function.BiConsumer[String, AnyRef] {
+							override def accept(lang: String, entry: AnyRef): Unit = {
+								val entryMap = new util.HashMap[String, AnyRef]()
+								entryMap.putAll(entry.asInstanceOf[java.util.Map[String, AnyRef]])
+								if (identifier == entryMap.get("id")) {
+									entryMap.put("status", latestStatus)
+								}
+								updatedLanguageMap.put(lang.toLowerCase, entryMap)
+							}
+						})
+						logger.info("ContentActor: syncLanguageMapAfterReview - after language update latestStatus: " + latestStatus + ", updatedLanguageMap: " + updatedLanguageMap + " , updatedLanguageBasemAO" + updatedBaseLanguageMap)
+						logger.info("ContentActor: syncLanguageMapAfterReview called for baseLangId: " + id)
+						val updateReq = new Request()
+						updateReq.setOperation("systemUpdate")
+						updateReq.setRequest(new util.HashMap[String, AnyRef]() {
+							{
+								put("languageMapV1", updatedLanguageMap)
+								put("versionKey", versionKey)
+							}
+						})
+						updateReq.setContext(new util.HashMap[String, AnyRef]() {
+							{
+								put("graph_id", "domain")
+								put("version", "1.0")
+								put("objectType", "Content")
+								put("schemaName", "content")
+								put("identifier", id)
+							}
+						})
+						systemUpdate(updateReq)
 					}
 				}
 
