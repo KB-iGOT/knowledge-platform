@@ -659,7 +659,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			if (MapUtils.isNotEmpty(languageMap)) {
 				val updatedLanguageMap = new util.HashMap[String, AnyRef]()
 				val updatedBaseLanguageMap = new util.HashMap[String, AnyRef]()
-				updatedLanguageMap.forEach(new java.util.function.BiConsumer[String, AnyRef] {
+				languageMap.forEach(new java.util.function.BiConsumer[String, AnyRef] {
 					override def accept(lang: String, entry: AnyRef): Unit = {
 						val entryMap = new util.HashMap[String, AnyRef]()
 						entryMap.putAll(entry.asInstanceOf[java.util.Map[String, AnyRef]])
