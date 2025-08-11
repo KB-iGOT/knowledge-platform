@@ -473,7 +473,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					case e: Exception => logger.info("Error while sending notification ", e)
 				}
 				val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
-				logger.info("The courseCategory inside review method is: " + courseCategory)
+				logger.info("The courseCategory inside reject method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
 						syncLanguageMapStatus(identifier, "Draft")
 				}
