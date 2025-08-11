@@ -330,12 +330,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
 				logger.info("The courseCategory inside review method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
-					val status: String = request.getRequest.getOrDefault("status", "").asInstanceOf[String]
-					if (StringUtils.isNotBlank(status)) {
-						syncLanguageMapStatus(identifier, "Review")
-					} else {
-						logger.info("The status is not present into the requestMap: " + identifier)
-					}
+					syncLanguageMapStatus(identifier, "Review")
 				}
 			}
 			Future.successful(ResponseHandler.OK())
@@ -480,11 +475,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
 				logger.info("The courseCategory inside review method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
-					if (StringUtils.isNotBlank(status)) {
 						syncLanguageMapStatus(identifier, "Draft")
-					} else {
-						logger.info("The status is not present into the requestMap: " + identifier)
-					}
 				}
 				ResponseHandler.OK.put("node_id", identifier).put("identifier", identifier)
 			})
