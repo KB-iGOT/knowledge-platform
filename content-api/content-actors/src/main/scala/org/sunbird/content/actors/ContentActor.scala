@@ -218,12 +218,14 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			logger.info("The courseCategory is: " + courseCategory)
 			if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
 				val status: String = request.getRequest.getOrDefault("status", "").asInstanceOf[String]
+				val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
 				if (StringUtils.isNotBlank(status)) {
-					syncLanguageMapStatus(identifier, status)
+					syncLanguageMapStatus(identifier, status, reviewStatus)
 				} else {
 					logger.info("The status is not present into the requestMap: " + identifier)
 				}
 			}
+			//TODO: THIS BLOCK NEED TO BE OPTIMIZE TO HANDLE UPDATE REVIEW STATUS USE CASES.
 			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean]) {
 				try {
 					NotificationManager.sendNotification(
@@ -331,7 +333,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
 				logger.info("The courseCategory inside review method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
-					syncLanguageMapStatus(identifier, "Review")
+					val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
+					syncLanguageMapStatus(identifier, "Review", reviewStatus)
 				}
 			}
 			Future.successful(ResponseHandler.OK())
@@ -476,7 +479,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
 				logger.info("The courseCategory inside reject method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
-						syncLanguageMapStatus(identifier, "Draft")
+					  val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
+						syncLanguageMapStatus(identifier, "Draft", reviewStatus)
 				}
 				ResponseHandler.OK.put("node_id", identifier).put("identifier", identifier)
 			})
@@ -660,7 +664,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
   		}
 	}
 
-	private def syncLanguageMapStatus(identifier: String, status: String): Future[Response] = {
+	private def syncLanguageMapStatus(identifier: String, status: String, reviewStatus: String): Future[Response] = {
 		logger.info("ContentActor: syncLanguageMapStatus called for identifier: " + identifier + " with status: " + status)
 		val confirmReadReq = new Request()
 		confirmReadReq.setContext(new java.util.HashMap[String, AnyRef]() {{
@@ -675,6 +679,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 
 		DataNode.read(confirmReadReq).flatMap { confirmedNode =>
 			val languageMapRaw = confirmedNode.getMetadata.getOrDefault("languageMapV1", new util.HashMap[String, AnyRef]())
+			val publisherIDs =	confirmedNode.getMetadata.getOrDefault("publisherIDs", new util.ArrayList[String]())
+			val reviewerIDs = confirmedNode.getMetadata.getOrDefault("reviewerIDs", new util.ArrayList[String]())
 			val languageMap = languageMapRaw match {
 				case s: String => JsonUtils.deserialize(s, classOf[java.util.Map[String, AnyRef]])
 				case m: java.util.Map[_, _] => m.asInstanceOf[java.util.Map[String, AnyRef]]
@@ -727,6 +733,9 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 								entryMap.putAll(entry.asInstanceOf[java.util.Map[String, AnyRef]])
 								if (identifier == entryMap.get("id")) {
 									entryMap.put("status", status)
+									entryMap.put("reviewStatus", reviewStatus)
+									entryMap.put("reviewerIDs", reviewerIDs)
+									entryMap.put("publisherIDs", publisherIDs)
 								}
 								updatedLanguageMap.put(lang.toLowerCase, entryMap)
 							}
