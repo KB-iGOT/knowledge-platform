@@ -333,8 +333,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
 				logger.info("The courseCategory inside review method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
-					val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
-					syncLanguageMapStatus(identifier, "Review", reviewStatus)
+					syncLanguageMapStatus(identifier, "Review", "InReview")
 				}
 			}
 			Future.successful(ResponseHandler.OK())
@@ -665,7 +664,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 	}
 
 	private def syncLanguageMapStatus(identifier: String, status: String, reviewStatus: String): Future[Response] = {
-		logger.info("ContentActor: syncLanguageMapStatus called for identifier: " + identifier + " with status: " + status)
+		logger.info("ContentActor: syncLanguageMapStatus called for identifier: " + identifier + " with status: " + status + ", reviewStatus" + reviewStatus)
 		val confirmReadReq = new Request()
 		confirmReadReq.setContext(new java.util.HashMap[String, AnyRef]() {{
 			put("graph_id", "domain")
