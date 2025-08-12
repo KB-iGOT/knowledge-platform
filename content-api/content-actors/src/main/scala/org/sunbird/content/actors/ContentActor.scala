@@ -821,7 +821,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 								logger.info(s"The courseCategory inside review method is: $courseCategory")
 
 								if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
-									syncLanguageMapStatus(identifier, "Review").map(_ => ())
+									val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
+									syncLanguageMapStatus(identifier, "Review", reviewStatus).map(_ => ())
 								} else {
 									Future.successful(())
 								}
