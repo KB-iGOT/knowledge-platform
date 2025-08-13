@@ -789,7 +789,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						if (node != null && StringUtils.isNotBlank(node.getObjectType)) {
 							request.getContext.put("schemaName", node.getObjectType.toLowerCase())
 						}
-
+						request.getContext.put(ContentConstants.IDENTIFIER, identifier)
 						if (StringUtils.equalsAnyIgnoreCase("Processing", node.getMetadata.getOrDefault("status", "").asInstanceOf[String])) {
 							Future.failed(new ClientException("ERR_NODE_ACCESS_DENIED", s"Review Operation Can't Be Applied On Node $identifier Under Processing State"))
 						} else {
