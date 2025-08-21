@@ -230,7 +230,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				.map(_.asInstanceOf[String])
 				.getOrElse("")
 			//TODO: THIS BLOCK NEED TO BE OPTIMIZE TO HANDLE UPDATE REVIEW STATUS USE CASES.
-			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !resourceCategory.equalsIgnoreCase("Learning Resource")) {
+			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !ContentConstants.LEARNING_RESOURCE.equalsIgnoreCase(resourceCategory)) {
 				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
