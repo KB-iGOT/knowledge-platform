@@ -440,8 +440,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						Map[String, Any]("id" -> identifier)
 					)
 					logger.info(
-						s"Notification sent for CONTENT_EDITED | identifier=$identifier | " +
-							s"name=${node.getMetadata.get("name")} | resourceCategory=$resourceCategory"
+						s"Notification sent for CONTENT_EDITED | identifier=$identifier | resourceCategory=$resourceCategory"
 					)
 				} else {
 					logger.info(
