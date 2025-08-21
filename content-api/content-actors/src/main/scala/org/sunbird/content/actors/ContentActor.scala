@@ -427,7 +427,11 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				DataNode.systemUpdate(request, response,"", None)
 		}).map(node => {
 			try {
-				if (sendNotification) {
+				val resourceCategory = Option(node.getMetadata.get("resourceCategory"))
+					.map(_.asInstanceOf[String])
+					.getOrElse("")
+				if (sendNotification &&
+					!resourceCategory.equalsIgnoreCase("Learning Resource")) {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
 						"UPDATE",
@@ -435,9 +439,13 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						node.getMetadata.get("name").asInstanceOf[String],
 						Map[String, Any]("id" -> identifier)
 					)
-					logger.info(s"Notification sent for CONTENT_EDITED - identifier: $identifier")
+					logger.info(
+						s"Notification sent for CONTENT_EDITED | identifier=$identifier | resourceCategory=$resourceCategory"
+					)
 				} else {
-					logger.info(s"Notification skipped for systemUpdate - identifier: $identifier (languageMapV1 update only)")
+					logger.info(
+						s"Notification skipped for systemUpdate | identifier=$identifier | resourceCategory=$resourceCategory (Learning Resource update)"
+					)
 				}
 			} catch {
 				case e: Exception => logger.info("Error while sending notification ", e)
