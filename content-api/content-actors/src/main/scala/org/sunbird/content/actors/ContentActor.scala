@@ -43,6 +43,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 	private lazy val importConfig = getImportConfig()
 	private lazy val importMgr = new ImportManager(importConfig)
 	private val logger: Logger = LoggerFactory.getLogger("ContentActor")
+	val excludedCategories: Set[String] = Set(ContentConstants.LEARNING_RESOURCE)
 
 	override def onReceive(request: Request): Future[Response] = {
 		request.getOperation match {
@@ -226,11 +227,11 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					logger.info("The status is not present into the requestMap: " + identifier)
 				}
 			}
-			val resourceCategory = Option(node.getMetadata.get("resourceCategory"))
-				.map(_.asInstanceOf[String])
-				.getOrElse("")
+			val resourceCategoryOpt = Option(node.getMetadata.get("resourceCategory")).map(_.asInstanceOf[String])
+			val primaryCategoryOpt = Option(node.getMetadata.get("primaryCategory")).map(_.asInstanceOf[String])
+			val categoryToCheck = resourceCategoryOpt.filter(_.nonEmpty).orElse(primaryCategoryOpt).getOrElse("")
 			//TODO: THIS BLOCK NEED TO BE OPTIMIZE TO HANDLE UPDATE REVIEW STATUS USE CASES.
-			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !ContentConstants.LEARNING_RESOURCE.equalsIgnoreCase(resourceCategory)) {
+			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !excludedCategories.contains(categoryToCheck)) {
 				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
@@ -239,7 +240,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						node.getMetadata.get("name").asInstanceOf[String],
 						Map[String, Any]("id" -> identifier)
 					)
-					logger.info(s"Notification sent | identifier=$identifier | resourceCategory=$resourceCategory")
+					logger.info(s"Notification sent | identifier=$identifier | resourceCategory=$categoryToCheck")
 				} catch {
 					case e: Exception => logger.info("Error while sending notification ", e)
 				}
@@ -430,11 +431,11 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				DataNode.systemUpdate(request, response,"", None)
 		}).map(node => {
 			try {
-				val resourceCategory = Option(node.getMetadata.get("resourceCategory"))
-					.map(_.asInstanceOf[String])
-					.getOrElse("")
+				val resourceCategoryOpt = Option(node.getMetadata.get("resourceCategory")).map(_.asInstanceOf[String])
+				val primaryCategoryOpt = Option(node.getMetadata.get("primaryCategory")).map(_.asInstanceOf[String])
+				val categoryToCheck = resourceCategoryOpt.filter(_.nonEmpty).orElse(primaryCategoryOpt).getOrElse("")
 				if (sendNotification &&
-					!resourceCategory.equalsIgnoreCase("Learning Resource")) {
+					!excludedCategories.contains(categoryToCheck)) {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
 						"UPDATE",
@@ -443,11 +444,11 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						Map[String, Any]("id" -> identifier)
 					)
 					logger.info(
-						s"Notification sent for CONTENT_EDITED | identifier=$identifier | resourceCategory=$resourceCategory"
+						s"Notification sent for CONTENT_EDITED | identifier=$identifier | resourceCategory=$categoryToCheck"
 					)
 				} else {
 					logger.info(
-						s"Notification skipped for systemUpdate | identifier=$identifier | resourceCategory=$resourceCategory (Learning Resource update)"
+						s"Notification skipped for systemUpdate | identifier=$identifier | resourceCategory=$categoryToCheck (Learning Resource update)"
 					)
 				}
 			} catch {
