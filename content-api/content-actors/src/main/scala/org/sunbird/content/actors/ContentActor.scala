@@ -406,7 +406,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		ImportConfig(topicName, reqLimit, requiredProps, validStages, propsToRemove, validSourceStatus)
 	}
 
-	def systemUpdate(request: Request, sendNotification: Boolean = true): Future[Response] = {
+	def systemUpdate(request: Request): Future[Response] = {
 		val identifier = request.getContext.get("identifier").asInstanceOf[String]
 		RequestUtil.validateRequest(request)
 		RedisCache.delete(hierarchyPrefix + request.get("rootId"))
@@ -427,18 +427,13 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				DataNode.systemUpdate(request, response,"", None)
 		}).map(node => {
 			try {
-				if (sendNotification) {
-					NotificationManager.sendNotification(
-						"CONTENT_EDITED",
-						"UPDATE",
-						List(node.getMetadata.get("createdBy").asInstanceOf[String]),
-						node.getMetadata.get("name").asInstanceOf[String],
-						Map[String, Any]("id" -> identifier)
-					)
-					logger.info(s"Notification sent for CONTENT_EDITED - identifier: $identifier")
-				} else {
-					logger.info(s"Notification skipped for systemUpdate - identifier: $identifier (languageMapV1 update only)")
-				}
+				NotificationManager.sendNotification(
+					"CONTENT_EDITED",
+					"UPDATE",
+					List(node.getMetadata.get("createdBy").asInstanceOf[String]),
+					node.getMetadata.get("name").asInstanceOf[String],
+					Map[String, Any]("id" -> identifier)
+				)
 			} catch {
 				case e: Exception => logger.info("Error while sending notification ", e)
 			}
@@ -485,7 +480,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				logger.info("The courseCategory inside reject method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
 					  val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
-						syncLanguageMapStatus(identifier, "Draft", reviewStatus, Boolean.box(false))
+						syncLanguageMapStatus(identifier, "Draft", reviewStatus)
 				}
 				ResponseHandler.OK.put("node_id", identifier).put("identifier", identifier)
 			})
@@ -669,7 +664,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
   		}
 	}
 
-	private def syncLanguageMapStatus(identifier: String, status: String, reviewStatus: String, sendNotification: Boolean = true): Future[Response] = {
+	private def syncLanguageMapStatus(identifier: String, status: String, reviewStatus: String): Future[Response] = {
 		logger.info("ContentActor: syncLanguageMapStatus called for identifier: " + identifier + " with status: " + status + ", reviewStatus" + reviewStatus)
 		val confirmReadReq = new Request()
 		confirmReadReq.setContext(new java.util.HashMap[String, AnyRef]() {{
@@ -764,7 +759,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 								put("identifier", id)
 							}
 						})
-							systemUpdate(updateReq, sendNotification)
+						systemUpdate(updateReq)
 					}
 				}
 
