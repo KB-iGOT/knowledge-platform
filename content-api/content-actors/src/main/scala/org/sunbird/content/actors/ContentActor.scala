@@ -226,8 +226,11 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					logger.info("The status is not present into the requestMap: " + identifier)
 				}
 			}
+			val resourceCategory = Option(node.getMetadata.get("resourceCategory"))
+				.map(_.asInstanceOf[String])
+				.getOrElse("")
 			//TODO: THIS BLOCK NEED TO BE OPTIMIZE TO HANDLE UPDATE REVIEW STATUS USE CASES.
-			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean]) {
+			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !resourceCategory.equalsIgnoreCase("Learning Resource")) {
 				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
@@ -236,7 +239,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						node.getMetadata.get("name").asInstanceOf[String],
 						Map[String, Any]("id" -> identifier)
 					)
-
+					logger.info(s"Notification sent | identifier=$identifier | resourceCategory=$resourceCategory")
 				} catch {
 					case e: Exception => logger.info("Error while sending notification ", e)
 				}
