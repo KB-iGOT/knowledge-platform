@@ -410,7 +410,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		ImportConfig(topicName, reqLimit, requiredProps, validStages, propsToRemove, validSourceStatus)
 	}
 
-	def systemUpdate(request: Request, sendNotification: Boolean = true): Future[Response] = {
+	def systemUpdate(request: Request): Future[Response] = {
 		val identifier = request.getContext.get("identifier").asInstanceOf[String]
 		RequestUtil.validateRequest(request)
 		RedisCache.delete(hierarchyPrefix + request.get("rootId"))
@@ -430,30 +430,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			else
 				DataNode.systemUpdate(request, response,"", None)
 		}).map(node => {
-			try {
-				val resourceCategoryOpt = Option(node.getMetadata.get("resourceCategory")).map(_.asInstanceOf[String])
-				val primaryCategoryOpt = Option(node.getMetadata.get("primaryCategory")).map(_.asInstanceOf[String])
-				val categoryToCheck = resourceCategoryOpt.filter(_.nonEmpty).orElse(primaryCategoryOpt).getOrElse("")
-				if (sendNotification &&
-					!excludedCategories.contains(categoryToCheck)) {
-					NotificationManager.sendNotification(
-						"CONTENT_EDITED",
-						"UPDATE",
-						List(node.getMetadata.get("createdBy").asInstanceOf[String]),
-						node.getMetadata.get("name").asInstanceOf[String],
-						Map[String, Any]("id" -> identifier)
-					)
-					logger.info(
-						s"Notification sent for CONTENT_EDITED | identifier=$identifier | resourceCategory=$categoryToCheck"
-					)
-				} else {
-					logger.info(
-						s"Notification skipped for systemUpdate | identifier=$identifier | resourceCategory=$categoryToCheck (Learning Resource update)"
-					)
-				}
-			} catch {
-				case e: Exception => logger.info("Error while sending notification ", e)
-			}
 			ResponseHandler.OK.put("identifier", identifier).put("status", "success")
 		})
 	}
@@ -497,7 +473,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				logger.info("The courseCategory inside reject method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
 					  val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
-						syncLanguageMapStatus(identifier, "Draft", reviewStatus, Boolean.box(false))
+						syncLanguageMapStatus(identifier, "Draft", reviewStatus)
 				}
 				ResponseHandler.OK.put("node_id", identifier).put("identifier", identifier)
 			})
@@ -681,7 +657,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
   		}
 	}
 
-	private def syncLanguageMapStatus(identifier: String, status: String, reviewStatus: String, sendNotification: Boolean = true): Future[Response] = {
+	private def syncLanguageMapStatus(identifier: String, status: String, reviewStatus: String): Future[Response] = {
 		logger.info("ContentActor: syncLanguageMapStatus called for identifier: " + identifier + " with status: " + status + ", reviewStatus" + reviewStatus)
 		val confirmReadReq = new Request()
 		confirmReadReq.setContext(new java.util.HashMap[String, AnyRef]() {{
@@ -776,7 +752,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 								put("identifier", id)
 							}
 						})
-							systemUpdate(updateReq, sendNotification)
+						systemUpdate(updateReq)
 					}
 				}
 
