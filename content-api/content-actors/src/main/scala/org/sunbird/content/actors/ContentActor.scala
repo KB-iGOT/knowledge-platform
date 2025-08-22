@@ -230,8 +230,9 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			val resourceCategoryOpt = Option(node.getMetadata.get("resourceCategory")).map(_.asInstanceOf[String])
 			val primaryCategoryOpt = Option(node.getMetadata.get("primaryCategory")).map(_.asInstanceOf[String])
 			val categoryToCheck = resourceCategoryOpt.filter(_.nonEmpty).orElse(primaryCategoryOpt).getOrElse("")
+			logger.info(s"Using categoryToCheck: $categoryToCheck")
 			//TODO: THIS BLOCK NEED TO BE OPTIMIZE TO HANDLE UPDATE REVIEW STATUS USE CASES.
-			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !excludedCategories.contains(categoryToCheck)) {
+			if (StringUtils.isNotBlank(courseCategory) && request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !excludedCategories.contains(categoryToCheck)) {
 				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
