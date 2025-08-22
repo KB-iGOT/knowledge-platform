@@ -180,7 +180,7 @@ class EventActor @Inject()(implicit oec: OntologyEngineContext, ss: StorageServi
     }).flatMap(f => f)
   }
 
-  override def systemUpdate(request: Request, sendNotification: Boolean = true): Future[Response] = {
+  override def systemUpdate(request: Request): Future[Response] = {
     RedisCache.delete(request.get("identifier").asInstanceOf[String])
     val identifier = request.get("identifier").asInstanceOf[String]
     val updatedIdentifier = if (!identifier.endsWith(".img")) s"$identifier.img" else identifier
