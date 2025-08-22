@@ -222,7 +222,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				val status: String = request.getRequest.getOrDefault("status", "").asInstanceOf[String]
 				val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
 				if (StringUtils.isNotBlank(status)) {
-					syncLanguageMapStatus(identifier, status, reviewStatus, Boolean.box(true))
+					syncLanguageMapStatus(identifier, status, reviewStatus)
 				} else {
 					logger.info("The status is not present into the requestMap: " + identifier)
 				}
@@ -338,7 +338,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
 				logger.info("The courseCategory inside review method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
-					syncLanguageMapStatus(identifier, "Review", "InReview", Boolean.box(true))
+					syncLanguageMapStatus(identifier, "Review", "InReview")
 				}
 			}
 			Future.successful(ResponseHandler.OK())
@@ -410,7 +410,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		ImportConfig(topicName, reqLimit, requiredProps, validStages, propsToRemove, validSourceStatus)
 	}
 
-	def systemUpdate(request: Request, sendNotification: Boolean = false): Future[Response] = {
+	def systemUpdate(request: Request): Future[Response] = {
 		val identifier = request.getContext.get("identifier").asInstanceOf[String]
 		RequestUtil.validateRequest(request)
 		RedisCache.delete(hierarchyPrefix + request.get("rootId"))
@@ -430,30 +430,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			else
 				DataNode.systemUpdate(request, response,"", None)
 		}).map(node => {
-			try {
-				val resourceCategoryOpt = Option(node.getMetadata.get("resourceCategory")).map(_.asInstanceOf[String])
-				val primaryCategoryOpt = Option(node.getMetadata.get("primaryCategory")).map(_.asInstanceOf[String])
-				val categoryToCheck = resourceCategoryOpt.filter(_.nonEmpty).orElse(primaryCategoryOpt).getOrElse("")
-				if (sendNotification &&
-					!excludedCategories.contains(categoryToCheck)) {
-					NotificationManager.sendNotification(
-						"CONTENT_EDITED",
-						"UPDATE",
-						List(node.getMetadata.get("createdBy").asInstanceOf[String]),
-						node.getMetadata.get("name").asInstanceOf[String],
-						Map[String, Any]("id" -> identifier)
-					)
-					logger.info(
-						s"Notification sent for CONTENT_EDITED | identifier=$identifier | resourceCategory=$categoryToCheck"
-					)
-				} else {
-					logger.info(
-						s"Notification skipped for systemUpdate | identifier=$identifier | resourceCategory=$categoryToCheck (Learning Resource update)"
-					)
-				}
-			} catch {
-				case e: Exception => logger.info("Error while sending notification ", e)
-			}
 			ResponseHandler.OK.put("identifier", identifier).put("status", "success")
 		})
 	}
@@ -497,7 +473,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				logger.info("The courseCategory inside reject method is: " + courseCategory)
 				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
 					  val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
-						syncLanguageMapStatus(identifier, "Draft", reviewStatus, Boolean.box(true))
+						syncLanguageMapStatus(identifier, "Draft", reviewStatus)
 				}
 				ResponseHandler.OK.put("node_id", identifier).put("identifier", identifier)
 			})
@@ -681,7 +657,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
   		}
 	}
 
-	private def syncLanguageMapStatus(identifier: String, status: String, reviewStatus: String, sendNotification: Boolean = false): Future[Response] = {
+	private def syncLanguageMapStatus(identifier: String, status: String, reviewStatus: String): Future[Response] = {
 		logger.info("ContentActor: syncLanguageMapStatus called for identifier: " + identifier + " with status: " + status + ", reviewStatus" + reviewStatus)
 		val confirmReadReq = new Request()
 		confirmReadReq.setContext(new java.util.HashMap[String, AnyRef]() {{
@@ -776,15 +752,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 								put("identifier", id)
 							}
 						})
-						val doid = v.asInstanceOf[java.util.Map[String, AnyRef]].get("id").asInstanceOf[String]
-
-						if (doid.equalsIgnoreCase(identifier)) {
-							logger.info(s"ContentActor: syncLanguageMapStatus - updating incoming language node with identifier: $doid")
-							systemUpdate(updateReq, sendNotification = Boolean.box(true))
-						} else {
-							logger.info(s"ContentActor: syncLanguageMapStatus - updating other language node with identifier: $doid")
-							systemUpdate(updateReq, sendNotification = Boolean.box(false))
-						}
+						systemUpdate(updateReq)
 					}
 				}
 
@@ -847,7 +815,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 
 								if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
 									val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
-									syncLanguageMapStatus(identifier, "Review", reviewStatus, Boolean.box(true)).map(_ => ())
+									syncLanguageMapStatus(identifier, "Review", reviewStatus).map(_ => ())
 								} else {
 									Future.successful(())
 								}
