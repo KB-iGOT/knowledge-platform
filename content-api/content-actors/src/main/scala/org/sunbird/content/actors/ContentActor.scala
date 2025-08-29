@@ -43,6 +43,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 	private lazy val importConfig = getImportConfig()
 	private lazy val importMgr = new ImportManager(importConfig)
 	private val logger: Logger = LoggerFactory.getLogger("ContentActor")
+	val excludedCategories: Set[String] = Set(ContentConstants.LEARNING_RESOURCE)
 
 	override def onReceive(request: Request): Future[Response] = {
 		request.getOperation match {
@@ -64,6 +65,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			case "rejectContent" => rejectContent(request)
 			case "adminReadContent" => adminRead(request)
 			case "createMLContent" => createMLContent(request)
+			case "reviewMLContent" => reviewMLContent(request)
+			case "updateReviewStatusMLContent" => updateReviewStatusMLContent(request)
 			case _ => ERROR(request.getOperation)
 		}
 	}
@@ -213,7 +216,23 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		}
 		DataNode.update(request, dataModifier).map(node => {
 			val identifier: String = node.getIdentifier.replace(".img", "")
-			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean]) {
+			val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
+			logger.info("The courseCategory is: " + courseCategory)
+			if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
+				val status: String = request.getRequest.getOrDefault("status", "").asInstanceOf[String]
+				val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
+				if (StringUtils.isNotBlank(status)) {
+					syncLanguageMapStatus(identifier, status, reviewStatus)
+				} else {
+					logger.info("The status is not present into the requestMap: " + identifier)
+				}
+			}
+			val resourceCategoryOpt = Option(node.getMetadata.get("resourceCategory")).map(_.asInstanceOf[String])
+			val primaryCategoryOpt = Option(node.getMetadata.get("primaryCategory")).map(_.asInstanceOf[String])
+			val categoryToCheck = resourceCategoryOpt.filter(_.nonEmpty).orElse(primaryCategoryOpt).getOrElse("")
+			logger.info(s"Using categoryToCheck: $categoryToCheck")
+			//TODO: THIS BLOCK NEED TO BE OPTIMIZE TO HANDLE UPDATE REVIEW STATUS USE CASES.
+			if (StringUtils.isNotBlank(courseCategory) && request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !excludedCategories.contains(categoryToCheck)) {
 				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
@@ -222,7 +241,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						node.getMetadata.get("name").asInstanceOf[String],
 						Map[String, Any]("id" -> identifier)
 					)
-
+					logger.info(s"Notification sent | identifier=$identifier | resourceCategory=$categoryToCheck")
 				} catch {
 					case e: Exception => logger.info("Error while sending notification ", e)
 				}
@@ -317,8 +336,13 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				} catch {
 					case e: Exception => logger.info("Error while sending notification ", e)
 				}
-				syncLanguageMapStatus(identifier, "Review")
+				val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
+				logger.info("The courseCategory inside review method is: " + courseCategory)
+				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
+					syncLanguageMapStatus(identifier, "Review", "InReview")
+				}
 			}
+			Future.successful(ResponseHandler.OK())
 		}).flatMap(f => f)
 	}
 
@@ -407,17 +431,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			else
 				DataNode.systemUpdate(request, response,"", None)
 		}).map(node => {
-			try {
-				NotificationManager.sendNotification(
-					"CONTENT_EDITED",
-					"UPDATE",
-					List(node.getMetadata.get("createdBy").asInstanceOf[String]),
-					node.getMetadata.get("name").asInstanceOf[String],
-					Map[String, Any]("id" -> identifier)
-				)
-			} catch {
-				case e: Exception => logger.info("Error while sending notification ", e)
-			}
 			ResponseHandler.OK.put("identifier", identifier).put("status", "success")
 		})
 	}
@@ -457,9 +470,15 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				} catch {
 					case e: Exception => logger.info("Error while sending notification ", e)
 				}
+				val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
+				logger.info("The courseCategory inside reject method is: " + courseCategory)
+				if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
+					  val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
+						syncLanguageMapStatus(identifier, "Draft", reviewStatus)
+				}
 				ResponseHandler.OK.put("node_id", identifier).put("identifier", identifier)
 			})
-		}).flatMap(identifier => syncLanguageMapStatus(id, "Draft"))
+		}).flatMap(f => f)
 	}
 
 	def adminRead(request: Request): Future[Response] = {
@@ -517,6 +536,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			val mimeType = metadata.getOrDefault("mimeType", "").asInstanceOf[String]
 			val posterImage = metadata.getOrDefault("posterImage", "").asInstanceOf[String]
 			val appIcon = metadata.getOrDefault("appIcon", "").asInstanceOf[String]
+			val creatorLogo = metadata.getOrDefault("creatorLogo", "").asInstanceOf[String]
 
 			val creationFutures = languages.asScala.map { lang =>
 				val contentMap = new java.util.HashMap[String, AnyRef]()
@@ -535,6 +555,9 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				contentMap.put("name", name + " - " + lang.capitalize)
 				contentMap.put("appIcon", appIcon)
 				contentMap.put("posterImage", posterImage)
+				if (StringUtils.isNotBlank(creatorLogo)) {
+					contentMap.put("creatorLogo", creatorLogo)
+				}
 
 				val createRequest = new Request()
 				createRequest.setOperation("createContent")
@@ -635,8 +658,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
   		}
 	}
 
-	private def syncLanguageMapStatus(identifier: String, status: String): Future[Response] = {
-		logger.info("ContentActor: syncLanguageMapStatus called for identifier: " + identifier + " with status: " + status)
+	private def syncLanguageMapStatus(identifier: String, status: String, reviewStatus: String): Future[Response] = {
+		logger.info("ContentActor: syncLanguageMapStatus called for identifier: " + identifier + " with status: " + status + ", reviewStatus" + reviewStatus)
 		val confirmReadReq = new Request()
 		confirmReadReq.setContext(new java.util.HashMap[String, AnyRef]() {{
 			put("graph_id", "domain")
@@ -650,6 +673,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 
 		DataNode.read(confirmReadReq).flatMap { confirmedNode =>
 			val languageMapRaw = confirmedNode.getMetadata.getOrDefault("languageMapV1", new util.HashMap[String, AnyRef]())
+			val publisherIDs =	confirmedNode.getMetadata.getOrDefault("publisherIDs", new util.ArrayList[String]())
+			val reviewerIDs = confirmedNode.getMetadata.getOrDefault("reviewerIDs", new util.ArrayList[String]())
 			val languageMap = languageMapRaw match {
 				case s: String => JsonUtils.deserialize(s, classOf[java.util.Map[String, AnyRef]])
 				case m: java.util.Map[_, _] => m.asInstanceOf[java.util.Map[String, AnyRef]]
@@ -702,6 +727,9 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 								entryMap.putAll(entry.asInstanceOf[java.util.Map[String, AnyRef]])
 								if (identifier == entryMap.get("id")) {
 									entryMap.put("status", status)
+									entryMap.put("reviewStatus", reviewStatus)
+									entryMap.put("reviewerIDs", reviewerIDs)
+									entryMap.put("publisherIDs", publisherIDs)
 								}
 								updatedLanguageMap.put(lang.toLowerCase, entryMap)
 							}
@@ -733,6 +761,111 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			} else {
 				Future.successful(ResponseHandler.OK())
 			}
+		}
+	}
+
+	def reviewMLContent(request: Request)(implicit ec: ExecutionContext): Future[Response] = {
+
+		val identifiers: List[String] = request.getRequest.getOrDefault("identifier", List.empty[String])
+		match {
+			case s: String if StringUtils.isNotBlank(s) => List(s)
+			case arr: Array[String]                     => arr.toList
+			case list: java.util.List[_]                => list.asScala.toList.map(_.toString)
+			case _                                      => List.empty[String]
+		}
+
+		identifiers.foldLeft(Future.successful(())) { (acc, identifier) =>
+				acc.flatMap { _ =>
+					val readReq = new Request(request)
+					readReq.put("identifier", identifier)
+					readReq.put("mode", "edit")
+
+					DataNode.read(readReq).flatMap { node =>
+						if (node != null && StringUtils.isNotBlank(node.getObjectType)) {
+							request.getContext.put("schemaName", node.getObjectType.toLowerCase())
+						}
+						request.getContext.put(ContentConstants.IDENTIFIER, identifier)
+						if (StringUtils.equalsAnyIgnoreCase("Processing", node.getMetadata.getOrDefault("status", "").asInstanceOf[String])) {
+							Future.failed(new ClientException("ERR_NODE_ACCESS_DENIED", s"Review Operation Can't Be Applied On Node $identifier Under Processing State"))
+						} else {
+							ReviewManager.review(request, node).flatMap { _ =>
+								try {
+									val reviewers = node.getMetadata.get("reviewerIDs") match {
+										case arr: Array[String] => arr.toList
+										case list: java.util.List[_] => list.asScala.toList.map(_.toString)
+									}
+
+									if (reviewers.nonEmpty) {
+										NotificationManager.sendNotification(
+											"CONTENT_REVIEW_REQUEST",
+											"ALERT",
+											reviewers,
+											node.getMetadata.get("name").asInstanceOf[String],
+											Map[String, Any]("id" -> identifier)
+										)
+									} else {
+										logger.warn(s"No reviewers found for content with identifier: $identifier")
+									}
+								} catch {
+									case e: Exception => logger.info("Error while sending notification ", e)
+								}
+
+								val courseCategory = node.getMetadata.get(ContentConstants.COURSE_CATEGORY).asInstanceOf[String]
+
+								logger.info(s"The courseCategory inside review method is: $courseCategory")
+
+								if (StringUtils.isNotBlank(courseCategory) && courseCategory.equalsIgnoreCase(ContentConstants.MULTILINGUAL_COURSE)) {
+									val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
+									syncLanguageMapStatus(identifier, "Review", reviewStatus).map(_ => ())
+								} else {
+									Future.successful(())
+								}
+							}
+						}
+					}
+				}
+			}
+			.map(_ => ResponseHandler.OK())
+	}
+
+	def updateReviewStatusMLContent(request: Request)(implicit ec: ExecutionContext): Future[Response] = {
+
+		val identifiers: List[String] = request.getRequest.getOrDefault("identifier", List.empty[String]) match {
+			case s: String if StringUtils.isNotBlank(s) => List(s)
+			case arr: Array[String]                     => arr.toList
+			case list: java.util.List[_]                => list.asScala.toList.map(_.toString)
+			case _                                      => List.empty[String]
+		}
+
+		identifiers.foldLeft(Future.successful(Map.empty[String, AnyRef])) { (accFut, identifier) =>
+			for {
+				acc <- accFut
+				node <- {
+					val readReq = new Request(request)
+					readReq.put("identifier", identifier)
+					readReq.put("mode", "edit")
+					DataNode.read(readReq)
+				}
+				updateResponse <- {
+					val updateReq = new Request(request)
+					updateReq.put("identifier", identifier)
+					updateReq.put("reviewStatus", request.getRequest.getOrDefault("reviewStatus", "Reviewed"))
+					updateReq.put("status", request.getRequest.getOrDefault("status", "Review"))
+					updateReq.getRequest.put(ContentConstants.IDENTIFIER, identifier)
+					updateReq.getContext.put(ContentConstants.IDENTIFIER, identifier)
+					updateReq.getRequest.put(ContentConstants.VERSION_KEY, node.getMetadata.get(ContentConstants.VERSION_KEY))
+					updateReq.getContext.put("sendNotification", Boolean.box(true))
+					updateReq.setOperation("updateReviewStatusMLContent")
+					update(updateReq) // Future[Response]
+				}
+			} yield {
+				val nodeMap = new java.util.HashMap[String, AnyRef]()
+				val responseMap = updateResponse.getResult
+				nodeMap.put("response", if (MapUtils.isNotEmpty(responseMap)) responseMap else new util.HashMap())
+				acc + (identifier -> nodeMap)
+			}
+		}.map { resultMap =>
+			ResponseHandler.OK().putAll(resultMap.asJava)
 		}
 	}
 }

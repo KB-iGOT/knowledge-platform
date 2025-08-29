@@ -3,14 +3,14 @@ package controllers.v4
 import akka.actor.{ActorRef, ActorSystem}
 import com.google.inject.Singleton
 import controllers.BaseController
+
 import javax.inject.{Inject, Named}
 import org.sunbird.models.UploadParams
 import play.api.mvc.ControllerComponents
 import utils.{ActorNames, ApiId}
 
 import scala.collection.JavaConverters._
-
-import scala.concurrent.{ExecutionContext}
+import scala.concurrent.ExecutionContext
 
 @Singleton
 class ContentController @Inject()(@Named(ActorNames.CONTENT_ACTOR) contentActor: ActorRef, cc: ControllerComponents, actorSystem: ActorSystem)(implicit exec: ExecutionContext) extends BaseController(cc) {
@@ -48,7 +48,7 @@ class ContentController @Inject()(@Named(ActorNames.CONTENT_ACTOR) contentActor:
       * @param fields List of fields to return in the response
       */
     def read(identifier: String, mode: Option[String], fields: Option[String]) = Action.async { implicit request =>
-        val headers = commonHeaders()
+        val headers = commonReadHeaders()
         val content = new java.util.HashMap().asInstanceOf[java.util.Map[String, Object]]
         content.putAll(headers)
         content.putAll(Map("identifier" -> identifier, "mode" -> mode.getOrElse("read"), "fields" -> fields.getOrElse("")).asJava)
@@ -227,6 +227,26 @@ class ContentController @Inject()(@Named(ActorNames.CONTENT_ACTOR) contentActor:
         val contentRequest = getRequest(content, headers, "createMLContent", true)
         setRequestContext(contentRequest, version, objectType, schemaName)
         getResult(ApiId.CREATE_ML_CONTENT, contentActor, contentRequest, version = apiVersion)
+    }
+
+    def reviewMLContent() = Action.async { implicit request =>
+        val headers = commonHeaders()
+        val body = requestBody()
+        val content = body.getOrDefault(schemaName, new java.util.HashMap()).asInstanceOf[java.util.Map[String, Object]];
+        content.putAll(headers)
+        val contentRequest = getRequest(content, headers, "reviewMLContent", true)
+        setRequestContext(contentRequest, version, objectType, schemaName)
+        getResult(ApiId.REVIEW_ML_CONTENT, contentActor, contentRequest, version = apiVersion)
+    }
+
+    def updateReviewStatusMLContent() = Action.async { implicit request =>
+        val headers = commonHeaders()
+        val body = requestBody()
+        val content = body.getOrDefault(schemaName, new java.util.HashMap()).asInstanceOf[java.util.Map[String, Object]];
+        content.putAll(headers)
+        val contentRequest = getRequest(content, headers, "updateReviewStatusMLContent", true)
+        setRequestContext(contentRequest, version, objectType, schemaName)
+        getResult(ApiId.UPDATE_REVIEW_STATUS_ML_CONTENT, contentActor, contentRequest, version = apiVersion)
     }
 
 }
