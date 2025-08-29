@@ -384,9 +384,34 @@ public class SearchProcessor {
 			enableSecureSettings = searchDTO.isSecureSettings();
 			disableSecureSettings = searchDTO.isSecureSettingsDisabled();
 		}
-		for (Map<String, Object> property : properties) {
-			String opertation = (String) property.get("operation");
+        // Collect all "any" filters into a single should clause
+        BoolQueryBuilder anyShouldQuery = QueryBuilders.boolQuery();
+        for (Map<String, Object> property : properties) {
+            String opertation = (String) property.get("operation");
+            if (SearchConstants.any.equalsIgnoreCase(opertation)) {
+                String propertyName = (String) property.get("propertyName");
+                List<Object> values;
+                try {
+                    values = (List<Object>) property.get("values");
+                } catch (Exception e) {
+                    values = Arrays.asList(property.get("values"));
+                }
+                values = values.stream().filter(value -> (null != value)).collect(Collectors.toList());
+                QueryBuilder anyQuery = getAnyTermQuery(propertyName, values);
+                anyQuery = checkNestedProperty(anyQuery, propertyName);
+                anyShouldQuery.should(anyQuery);
+            }
+        }
+        if (anyShouldQuery.hasClauses()) {
+            boolQuery.must(anyShouldQuery);
+        }
 
+        for (Map<String, Object> property : properties) {
+            String opertation = (String) property.get("operation");
+
+            if (SearchConstants.any.equalsIgnoreCase(opertation)) {
+                continue; // Already handled above
+            }
 			Object objValues = property.get("values");
 			Map<String, Object> valuesMap = new HashMap<>();
 			if (objValues instanceof Map) {
@@ -974,4 +999,17 @@ public class SearchProcessor {
 
 		return queryBuilder;
 	}
+
+    private QueryBuilder getAnyTermQuery(String propertyName, List<Object> values) {
+        BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+        for (Object value : values) {
+            if (value instanceof Map || value instanceof List) {
+                continue;
+            }
+            queryBuilder.should(
+                    QueryBuilders.matchQuery(propertyName, value).fuzzyTranspositions(false)
+            );
+        }
+        return queryBuilder;
+    }
 }
