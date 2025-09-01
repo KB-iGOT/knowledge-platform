@@ -387,14 +387,14 @@ public class SearchProcessor {
         // Collect all "any" filters into a single should clause
         BoolQueryBuilder anyShouldQuery = QueryBuilders.boolQuery();
         for (Map<String, Object> property : properties) {
-            String opertation = (String) property.get("operation");
-            if (SearchConstants.any.equalsIgnoreCase(opertation)) {
-                String propertyName = (String) property.get("propertyName");
+            String opertation = (String) property.get(SearchConstants.OPERATION);
+            if (SearchConstants.ANY.equalsIgnoreCase(opertation)) {
+                String propertyName = (String) property.get(SearchConstants.PROPERTY_NAME);
                 List<Object> values;
                 try {
-                    values = (List<Object>) property.get("values");
+                    values = (List<Object>) property.get(SearchConstants.VALUES);
                 } catch (Exception e) {
-                    values = Arrays.asList(property.get("values"));
+                    values = Arrays.asList(property.get(SearchConstants.VALUES));
                 }
                 values = values.stream().filter(value -> (null != value)).collect(Collectors.toList());
                 QueryBuilder anyQuery = getAnyTermQuery(propertyName, values);
@@ -407,27 +407,27 @@ public class SearchProcessor {
         }
 
         for (Map<String, Object> property : properties) {
-            String opertation = (String) property.get("operation");
+            String opertation = (String) property.get(SearchConstants.OPERATION);
 
-            if (SearchConstants.any.equalsIgnoreCase(opertation)) {
+            if (SearchConstants.ANY.equalsIgnoreCase(opertation)) {
                 continue; // Already handled above
             }
-			Object objValues = property.get("values");
+			Object objValues = property.get(SearchConstants.VALUES);
 			Map<String, Object> valuesMap = new HashMap<>();
 			if (objValues instanceof Map) {
-				valuesMap = (Map<String, Object>) property.get("values");
+				valuesMap = (Map<String, Object>) property.get(SearchConstants.VALUES);
 			}
 
 			List<Object> values;
 			try {
-				values = (List<Object>) property.get("values");
+				values = (List<Object>) property.get(SearchConstants.VALUES);
 			} catch (Exception e) {
-				values = Arrays.asList(property.get("values"));
+				values = Arrays.asList(property.get(SearchConstants.VALUES));
 			}
 			values = values.stream().filter(value -> (null != value)).collect(Collectors.toList());
 
 
-			String propertyName = (String) property.get("propertyName");
+			String propertyName = (String) property.get(SearchConstants.PROPERTY_NAME);
 			if (propertyName.equals("*")) {
 				relevanceSort = true;
 				propertyName = "all_fields";
