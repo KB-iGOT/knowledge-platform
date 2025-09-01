@@ -79,4 +79,5 @@ object ContentConstants {
     val ID: String = "id";
     val CONTENT_EDITED: String = "CONTENT_EDITED";
     val UPDATE: String = "UPDATE";
+    val SEND_TO_PUBLISH: String = "SentToPublish";
 }
