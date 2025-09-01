@@ -230,9 +230,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			val resourceCategoryOpt = Option(node.getMetadata.get("resourceCategory")).map(_.asInstanceOf[String])
 			val primaryCategoryOpt = Option(node.getMetadata.get("primaryCategory")).map(_.asInstanceOf[String])
 			val categoryToCheck = resourceCategoryOpt.filter(_.nonEmpty).orElse(primaryCategoryOpt).getOrElse("")
-			logger.info(s"Using categoryToCheck: $categoryToCheck")
 			//TODO: THIS BLOCK NEED TO BE OPTIMIZE TO HANDLE UPDATE REVIEW STATUS USE CASES.
-			if (StringUtils.isNotBlank(courseCategory) && request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !excludedCategories.contains(categoryToCheck)) {
+			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !excludedCategories.contains(categoryToCheck) && !reviewStatus.equalsIgnoreCase("Reviewed")) {
 				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
@@ -431,6 +430,20 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			else
 				DataNode.systemUpdate(request, response,"", None)
 		}).map(node => {
+      try {
+        val reviewStatus = Option(request.get("reviewStatus")).map(_.toString).getOrElse("")
+        if (reviewStatus.equalsIgnoreCase("Reviewed")) {
+          NotificationManager.sendNotification(
+            "CONTENT_EDITED",
+            "UPDATE",
+            List(node.getMetadata.get("createdBy").asInstanceOf[String]),
+            node.getMetadata.get("name").asInstanceOf[String],
+            Map[String, Any]("id" -> identifier)
+          )
+        }
+      } catch {
+        case e: Exception => logger.info("Error while sending notification ", e)
+      }
 			ResponseHandler.OK.put("identifier", identifier).put("status", "success")
 		})
 	}
