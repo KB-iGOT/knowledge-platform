@@ -432,7 +432,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		}).map(node => {
       try {
         val reviewStatus = Option(request.get(ContentConstants.REVIEW_STATUS)).map(_.toString).getOrElse("")
-        if (ContentConstants.REVIEWED.equalsIgnoreCase(reviewStatus)) {
+        if (ContentConstants.REVIEWED.equalsIgnoreCase(reviewStatus) || ContentConstants.SEND_TO_PUBLISH.equalsIgnoreCase(reviewStatus)) {
           NotificationManager.sendNotification(
             ContentConstants.CONTENT_EDITED,
             ContentConstants.UPDATE,
