@@ -231,7 +231,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			val primaryCategoryOpt = Option(node.getMetadata.get("primaryCategory")).map(_.asInstanceOf[String])
 			val categoryToCheck = resourceCategoryOpt.filter(_.nonEmpty).orElse(primaryCategoryOpt).getOrElse("")
 			//TODO: THIS BLOCK NEED TO BE OPTIMIZE TO HANDLE UPDATE REVIEW STATUS USE CASES.
-			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !excludedCategories.contains(categoryToCheck) && !reviewStatus.equalsIgnoreCase("Reviewed")) {
+			if (request.getContext.getOrDefault("sendNotification", Boolean.box(false)).asInstanceOf[Boolean] && !excludedCategories.contains(categoryToCheck) && !ContentConstants.REVIEWED.equalsIgnoreCase(reviewStatus)) {
 				try {
 					NotificationManager.sendNotification(
 						"CONTENT_EDITED",
@@ -431,14 +431,14 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				DataNode.systemUpdate(request, response,"", None)
 		}).map(node => {
       try {
-        val reviewStatus = Option(request.get("reviewStatus")).map(_.toString).getOrElse("")
-        if (reviewStatus.equalsIgnoreCase("Reviewed")) {
+        val reviewStatus = Option(request.get(ContentConstants.REVIEW_STATUS)).map(_.toString).getOrElse("")
+        if (ContentConstants.REVIEWED.equalsIgnoreCase(reviewStatus)) {
           NotificationManager.sendNotification(
-            "CONTENT_EDITED",
-            "UPDATE",
-            List(node.getMetadata.get("createdBy").asInstanceOf[String]),
-            node.getMetadata.get("name").asInstanceOf[String],
-            Map[String, Any]("id" -> identifier)
+            ContentConstants.CONTENT_EDITED,
+            ContentConstants.UPDATE,
+            List(node.getMetadata.get(ContentConstants.CREATED_BY).asInstanceOf[String]),
+            node.getMetadata.get(ContentConstants.NAME).asInstanceOf[String],
+            Map[String, Any](ContentConstants.ID -> identifier)
           )
         }
       } catch {
