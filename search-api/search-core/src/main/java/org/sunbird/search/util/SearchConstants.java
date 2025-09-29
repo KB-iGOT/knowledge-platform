@@ -48,6 +48,7 @@ public class SearchConstants {
     public static final String SEARCH_OPERATION_AND_TEXT_LOWERCASE = "and";
     public static final String SEARCH_OPERATION_AND_OPERATOR = "&";
     public static final String ALLOWED_SEARCH_QUERY_LENGTH = "allowed.search.query.length";
+    public static final int ALLOWED_SEARCH_QUERY_LENGTH_DEFAULT = 200;
 
 
     /**

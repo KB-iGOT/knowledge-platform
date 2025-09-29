@@ -113,7 +113,7 @@ public class SearchActor extends SearchBaseActor {
                 allowedQueryStringLength = Integer.parseInt(
                         Platform.config.getString(SearchConstants.ALLOWED_SEARCH_QUERY_LENGTH));
             } catch (Exception e) {
-                allowedQueryStringLength = 200; // default
+                allowedQueryStringLength = SearchConstants.ALLOWED_SEARCH_QUERY_LENGTH_DEFAULT; // default
             }
 
             if (StringUtils.isNotBlank(queryString) && queryString.length() > allowedQueryStringLength) {
