@@ -108,6 +108,10 @@ public class SearchActor extends SearchBaseActor {
             searchObj.setUserOrgId((String) request.getContext().get("x-user-channel-id"));
             TelemetryManager.log("Search Request: ", req);
             String queryString = (String) req.get(SearchConstants.query);
+            int allowedQueryStringLength = Integer.parseInt(Platform.config.getString("allowed.search.query.length"));
+            if(queryString !=null && queryString.length()>allowedQueryStringLength){
+                queryString = queryString.substring(0, allowedQueryStringLength);
+            }
             int limit = getIntValue(req.get(SearchConstants.limit));
             Boolean fuzzySearch = (Boolean) request.get("fuzzy");
             if (null == fuzzySearch)
