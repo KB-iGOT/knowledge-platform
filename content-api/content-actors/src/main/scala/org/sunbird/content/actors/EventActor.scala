@@ -1,6 +1,6 @@
 package org.sunbird.content.actors
 
-import org.apache.commons.lang.StringUtils
+
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 import org.sunbird.cache.impl.RedisCache
