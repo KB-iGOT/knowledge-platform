@@ -47,8 +47,8 @@ class EventActor @Inject()(implicit oec: OntologyEngineContext, ss: StorageServi
     val endDateTimeStr = request.getRequest.getOrDefault("endDateTime", "").asInstanceOf[String]
     if (StringUtils.isNotBlank(startDateTimeStr) && StringUtils.isNotBlank(endDateTimeStr)) {
       try {
-        val inputUtcFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXX")
-        val outputIstFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+        val inputUtcFormatter = DateTimeFormatter.ofPattern(Platform.config.getString("date.input.formatter"))
+        val outputIstFormatter = DateTimeFormatter.ofPattern(Platform.config.getString("date.input.formatter"))
         val istZoneId = ZoneId.of("Asia/Kolkata")
 
         val startDateTimeUtc = ZonedDateTime.parse(startDateTimeStr, inputUtcFormatter)
