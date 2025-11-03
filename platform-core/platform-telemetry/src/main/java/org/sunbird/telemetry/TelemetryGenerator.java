@@ -8,6 +8,7 @@ import org.sunbird.telemetry.dto.Context;
 import org.sunbird.telemetry.dto.Producer;
 import org.sunbird.telemetry.dto.Target;
 import org.sunbird.telemetry.dto.Telemetry;
+import org.sunbird.telemetry.logger.TelemetryRequestContext;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -77,6 +78,10 @@ public class TelemetryGenerator {
 			edata.put("pageid", pageid);
 		if (null != params && !params.isEmpty())
 			edata.put("params", getParamsList(params));
+        Object uidObj = context.get("userId");
+        if (uidObj != null && StringUtils.isNotBlank(uidObj.toString())) {
+            edata.put("uid", uidObj.toString());
+        }
 		Telemetry telemetry = new Telemetry("LOG", actor, eventContext, edata);
 		return getTelemetry(telemetry);
 	}
@@ -117,6 +122,10 @@ public class TelemetryGenerator {
 			edata.put("pageid", pageid);
 		if (null != object)
 			edata.put("object", object);
+        String uid = context != null ? context.get("userId") : null;
+        if (StringUtils.isNotBlank(uid)) {
+            edata.put("uid", uid);
+        }
 		Telemetry telemetry = new Telemetry("ERROR", actor, eventContext, edata);
 		return getTelemetry(telemetry);
 
@@ -233,7 +242,9 @@ public class TelemetryGenerator {
 		String did = context.get("did");
 		if (StringUtils.isNotBlank(did))
 			eventContext.setDid(did);
-
+        if (StringUtils.isNotBlank(TelemetryRequestContext.getUserId())) {
+            context.put("userId", TelemetryRequestContext.getUserId());
+        }
 		return eventContext;
 	}
 

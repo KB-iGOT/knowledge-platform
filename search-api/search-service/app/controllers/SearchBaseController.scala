@@ -111,12 +111,14 @@ abstract class SearchBaseController(protected val cc: ControllerComponents)(impl
     }
 
     protected def setHeaderContext(searchRequest: org.sunbird.common.dto.Request)(implicit playRequest: play.api.mvc.Request[AnyContent]) : Unit = {
-        searchRequest.setContext(new util.HashMap[String, AnyRef]())
-        searchRequest.getContext.put(TelemetryParams.ENV.name, "search")
-        searchRequest.getContext.putAll(commonHeaders())
-        if (StringUtils.isBlank(searchRequest.getContext.getOrDefault("CHANNEL_ID", "").asInstanceOf[String])) {
-            searchRequest.getContext.put("CHANNEL_ID", Platform.config.getString("channel.default"))
-        }
+      searchRequest.setContext(new util.HashMap[String, AnyRef]())
+      searchRequest.getContext.put(TelemetryParams.ENV.name, "search")
+      searchRequest.getContext.putAll(commonHeaders())
+      val userId = AuthUtil.verifyUser(playRequest)
+      TelemetryRequestContext.setUserId(userId)
+      if (StringUtils.isBlank(searchRequest.getContext.getOrDefault("CHANNEL_ID", "").asInstanceOf[String])) {
+        searchRequest.getContext.put("CHANNEL_ID", Platform.config.getString("channel.default"))
+      }
 
         if (null != searchRequest.getContext.get("CONSUMER_ID")) searchRequest.put(TelemetryParams.ACTOR.name, searchRequest.getContext.get("CONSUMER_ID"))
         else if (null != searchRequest && null != searchRequest.getParams.getCid) searchRequest.put(TelemetryParams.ACTOR.name, searchRequest.getParams.getCid)
