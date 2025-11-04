@@ -14,7 +14,7 @@ import java.util
 import java.util.UUID
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future}
-import utils.AuthUtil
+import utils.{AccessTokenValidator}
 
 abstract class SearchBaseController(protected val cc: ControllerComponents)(implicit exec: ExecutionContext) extends AbstractController(cc) {
 
@@ -116,7 +116,8 @@ abstract class SearchBaseController(protected val cc: ControllerComponents)(impl
       searchRequest.setContext(new util.HashMap[String, AnyRef]())
       searchRequest.getContext.put(TelemetryParams.ENV.name, "search")
       searchRequest.getContext.putAll(commonHeaders())
-      val userId = AuthUtil.verifyUser(playRequest)
+      val token = playRequest.headers.get("x-authenticated-user-token").getOrElse("")
+      val userId=AccessTokenValidator.verifyUserToken(token, searchRequest.getContext)
       TelemetryRequestContext.setUserId(userId)
       if (StringUtils.isBlank(searchRequest.getContext.getOrDefault("CHANNEL_ID", "").asInstanceOf[String])) {
         searchRequest.getContext.put("CHANNEL_ID", Platform.config.getString("channel.default"))

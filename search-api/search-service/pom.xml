@@ -50,6 +50,11 @@
       <artifactId>play-guice_${scala.major.version}</artifactId>
       <version>${play2.version}</version>
     </dependency>
+      <dependency>
+          <groupId>org.keycloak</groupId>
+          <artifactId>keycloak-admin-client</artifactId>
+          <version>7.0.1</version>
+      </dependency>
     <dependency>
       <groupId>com.typesafe.play</groupId>
       <artifactId>filters-helpers_${scala.major.version}</artifactId>
