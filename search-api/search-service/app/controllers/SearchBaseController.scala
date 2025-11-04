@@ -6,6 +6,7 @@ import org.apache.commons.lang3.StringUtils
 import org.sunbird.common.dto.{RequestParams, Response, ResponseHandler}
 import org.sunbird.common.exception.{ClientException, ResponseCode}
 import org.sunbird.common.{DateUtils, JsonUtils, Platform}
+import org.sunbird.search.util.SearchConstants
 import org.sunbird.telemetry.TelemetryParams
 import org.sunbird.telemetry.logger.TelemetryRequestContext
 import play.api.mvc._
@@ -14,7 +15,7 @@ import java.util
 import java.util.UUID
 import scala.collection.JavaConversions._
 import scala.concurrent.{ExecutionContext, Future}
-import utils.{AccessTokenValidator}
+import utils.AccessTokenValidator
 
 abstract class SearchBaseController(protected val cc: ControllerComponents)(implicit exec: ExecutionContext) extends AbstractController(cc) {
 
@@ -112,20 +113,20 @@ abstract class SearchBaseController(protected val cc: ControllerComponents)(impl
         request
     }
 
-    protected def setHeaderContext(searchRequest: org.sunbird.common.dto.Request)(implicit playRequest: play.api.mvc.Request[AnyContent]) : Unit = {
-      searchRequest.setContext(new util.HashMap[String, AnyRef]())
-      searchRequest.getContext.put(TelemetryParams.ENV.name, "search")
-      searchRequest.getContext.putAll(commonHeaders())
-      val token = playRequest.headers.get("x-authenticated-user-token").getOrElse("")
-      val userId=AccessTokenValidator.verifyUserToken(token, searchRequest.getContext)
-      TelemetryRequestContext.setUserId(userId)
-      if (StringUtils.isBlank(searchRequest.getContext.getOrDefault("CHANNEL_ID", "").asInstanceOf[String])) {
-        searchRequest.getContext.put("CHANNEL_ID", Platform.config.getString("channel.default"))
-      }
+    protected def setHeaderContext(searchRequest: org.sunbird.common.dto.Request)(implicit playRequest: play.api.mvc.Request[AnyContent]): Unit = {
+        searchRequest.setContext(new util.HashMap[String, AnyRef]())
+        searchRequest.getContext.put(TelemetryParams.ENV.name, SearchConstants.SEARCH)
+        searchRequest.getContext.putAll(commonHeaders())
+        val token = playRequest.headers.get(SearchConstants.X_AUTH_TOKEN).getOrElse("")
+        val userId = AccessTokenValidator.verifyUserToken(token, searchRequest.getContext)
+        TelemetryRequestContext.setUserId(userId)
+        if (StringUtils.isBlank(searchRequest.getContext.getOrDefault(SearchConstants.CHANNEL_ID, "").asInstanceOf[String])) {
+            searchRequest.getContext.put(SearchConstants.CHANNEL_ID, Platform.config.getString(SearchConstants.CHANNEL_DEFAULT))
+        }
 
-      if (null != searchRequest.getContext.get("CONSUMER_ID") && (searchRequest.getContext.get(TelemetryParams.ACTOR.name) == null)) searchRequest.put(TelemetryParams.ACTOR.name, searchRequest.getContext.get("CONSUMER_ID"))
-      else if (null != searchRequest && null != searchRequest.getParams.getCid && (searchRequest.getContext.get(TelemetryParams.ACTOR.name) == null)) searchRequest.put(TelemetryParams.ACTOR.name, searchRequest.getParams.getCid)
-      else if (searchRequest.getContext.get(TelemetryParams.ACTOR.name) == null) searchRequest.put(TelemetryParams.ACTOR.name, "learning.platform")
+        if (null != searchRequest.getContext.get(SearchConstants.CONSUMER_ID) && (searchRequest.getContext.get(TelemetryParams.ACTOR.name) == null)) searchRequest.put(TelemetryParams.ACTOR.name, searchRequest.getContext.get("CONSUMER_ID"))
+        else if (null != searchRequest && null != searchRequest.getParams.getCid && (searchRequest.getContext.get(TelemetryParams.ACTOR.name) == null)) searchRequest.put(TelemetryParams.ACTOR.name, searchRequest.getParams.getCid)
+        else if (searchRequest.getContext.get(TelemetryParams.ACTOR.name) == null) searchRequest.put(TelemetryParams.ACTOR.name, SearchConstants.LEARNING_PLATFORM)
     }
 
     def getErrorResponse(apiId: String, version: String, errCode: String, errMessage: String): Future[Result] = {

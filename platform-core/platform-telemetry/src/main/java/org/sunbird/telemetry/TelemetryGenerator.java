@@ -2,6 +2,7 @@ package org.sunbird.telemetry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
+import org.sunbird.common.Constants;
 import org.sunbird.common.Platform;
 import org.sunbird.telemetry.dto.Actor;
 import org.sunbird.telemetry.dto.Context;
@@ -78,9 +79,9 @@ public class TelemetryGenerator {
 			edata.put("pageid", pageid);
 		if (null != params && !params.isEmpty())
 			edata.put("params", getParamsList(params));
-        Object uidObj = context.get("userId");
-        if (uidObj != null && StringUtils.isNotBlank(uidObj.toString())) {
-            edata.put("uid", uidObj.toString());
+        Object userIdFromContext = context.get("userId");
+        if (userIdFromContext != null && StringUtils.isNotBlank(userIdFromContext.toString())) {
+            edata.put("uid", userIdFromContext.toString());
         }
 		Telemetry telemetry = new Telemetry("LOG", actor, eventContext, edata);
 		return getTelemetry(telemetry);
@@ -122,9 +123,9 @@ public class TelemetryGenerator {
 			edata.put("pageid", pageid);
 		if (null != object)
 			edata.put("object", object);
-        String uid = context != null ? context.get("userId") : null;
+        String uid = context != null ? context.get(Constants.USER_ID) : null;
         if (StringUtils.isNotBlank(uid)) {
-            edata.put("uid", uid);
+            edata.put(Constants.USER_ID, uid);
         }
 		Telemetry telemetry = new Telemetry("ERROR", actor, eventContext, edata);
 		return getTelemetry(telemetry);

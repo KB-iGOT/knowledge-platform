@@ -124,4 +124,12 @@ public class SearchConstants {
     public static final String OPERATION = "operation";
     public static final String PROPERTY_NAME = "propertyName";
     public static final String VALUES = "values";
+    public static final String SEARCH = "search";
+    public static final String X_AUTH_TOKEN = "x-authenticated-user-token";
+    public static final String CHANNEL_ID = "CHANNEL_ID";
+    public static final String CHANNEL_DEFAULT = "channel.default";
+    public static final String CONSUMER_ID = "CONSUMER_ID";
+    public static final String LEARNING_PLATFORM = "learning.platform";
+
+
 }
