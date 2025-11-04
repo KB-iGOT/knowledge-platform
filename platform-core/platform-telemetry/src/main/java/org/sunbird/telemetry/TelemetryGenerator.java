@@ -79,9 +79,9 @@ public class TelemetryGenerator {
 			edata.put("pageid", pageid);
 		if (null != params && !params.isEmpty())
 			edata.put("params", getParamsList(params));
-        Object userIdFromContext = context.get("userId");
+        Object userIdFromContext = context.get(Constants.USER_ID);
         if (userIdFromContext != null && StringUtils.isNotBlank(userIdFromContext.toString())) {
-            edata.put("uid", userIdFromContext.toString());
+            edata.put(Constants.USER_ID, userIdFromContext.toString());
         }
 		Telemetry telemetry = new Telemetry("LOG", actor, eventContext, edata);
 		return getTelemetry(telemetry);
@@ -244,7 +244,7 @@ public class TelemetryGenerator {
 		if (StringUtils.isNotBlank(did))
 			eventContext.setDid(did);
         if (StringUtils.isNotBlank(TelemetryRequestContext.getUserId())) {
-            context.put("userId", TelemetryRequestContext.getUserId());
+            context.put(Constants.USER_ID, TelemetryRequestContext.getUserId());
         }
 		return eventContext;
 	}

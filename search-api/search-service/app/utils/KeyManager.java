@@ -1,5 +1,6 @@
 package utils;
 
+import org.sunbird.common.Constants;
 import org.sunbird.common.Platform;
 import org.sunbird.telemetry.logger.TelemetryManager;
 
@@ -21,7 +22,7 @@ public class KeyManager {
     private static final Map<String, KeyData> keyMap = new HashMap<String, KeyData>();
 
     public static void init() {
-        String basePath = Platform.config.getString("access.token.publickey.basepath");
+        String basePath = Platform.config.getString(Constants.ACCESS_PUBLIC_KEY_PATH);
         try {
             File baseDir = new File(basePath);
             List<File> files = new ArrayList<File>();
@@ -34,11 +35,11 @@ public class KeyManager {
                     KeyData keyData = new KeyData(f.getName(), loadPublicKey(content));
                     keyMap.put(f.getName(), keyData);
                 } catch (Exception e) {
-                    TelemetryManager.error("KeyManager:init: exception reading public key file:", e);
+                    TelemetryManager.error(Constants.READING_PUBLIC_KEY_EXCEPTION, e);
                 }
             }
         } catch (Exception e) {
-            TelemetryManager.error("KeyManager:init: exception loading public keys", e);
+            TelemetryManager.error(Constants.LOADING_PUBLIC_KEY_EXCEPTION, e);
         }
     }
 

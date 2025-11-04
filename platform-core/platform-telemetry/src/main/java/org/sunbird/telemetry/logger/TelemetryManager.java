@@ -2,6 +2,7 @@ package org.sunbird.telemetry.logger;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.sunbird.common.Constants;
 import org.sunbird.common.Platform;
 import org.sunbird.common.exception.MiddlewareException;
 import org.sunbird.common.exception.ResponseCode;
@@ -203,7 +204,7 @@ public class TelemetryManager {
         if (StringUtils.isNotBlank(uid)) {
             if (reqContext == null) reqContext = new HashMap<>();
             reqContext.put(TelemetryParams.ACTOR.name(), uid);
-            reqContext.put("userId", uid);
+            reqContext.put(Constants.USER_ID, uid);
         }
 
         String event = TelemetryGenerator.search(reqContext, query, filters, sort, null, size, topN, type);
@@ -220,7 +221,7 @@ public class TelemetryManager {
 	private static void log(String message, Map<String, Object> params, String logLevel) {
 		Map<String, String> context = getContext();
         Map<String, Object> enrichedParams = ensureParamsWithUid(params);
-		String event = TelemetryGenerator.log(context, "system", logLevel, message, null, enrichedParams);
+		String event = TelemetryGenerator.log(context, Constants.SYSTEM, logLevel, message, null, enrichedParams);
 		telemetryHandler.send(event, Level.getLevel(logLevel));
 	}
 
@@ -230,7 +231,7 @@ public class TelemetryManager {
 
         if (StringUtils.isNotBlank(uid)) {
             context.put(TelemetryParams.ACTOR.name(), uid);
-            context.put("userId", uid);
+            context.put(Constants.USER_ID, uid);
         }
 		context.put(TelemetryParams.ACTOR.name(), "org.sunbird.learning.platform");
 		context.put(TelemetryParams.CHANNEL.name(), getContextValue("CHANNEL_ID", DEFAULT_CHANNEL_ID));
@@ -253,7 +254,7 @@ public class TelemetryManager {
         String uid = TelemetryRequestContext.getUserId();
         if (StringUtils.isNotBlank(uid)) {
             if (params == null) params = new HashMap<>();
-            params.put("userId", uid);
+            params.put(Constants.USER_ID, uid);
         }
         return params;
     }
@@ -263,13 +264,13 @@ public class TelemetryManager {
         Map<String, String> ctx = (context == null) ? new HashMap<>() : new HashMap<>(context);
         if (StringUtils.isNotBlank(uid)) {
             ctx.put(TelemetryParams.ACTOR.name(), uid);
-            ctx.put("userId", uid);
+            ctx.put(Constants.USER_ID, uid);
         }
         if (!ctx.containsKey(TelemetryParams.CHANNEL.name())) {
             ctx.put(TelemetryParams.CHANNEL.name(), DEFAULT_CHANNEL_ID);
         }
         if (!ctx.containsKey(TelemetryParams.ENV.name())) {
-            ctx.put(TelemetryParams.ENV.name(), "system");
+            ctx.put(TelemetryParams.ENV.name(), Constants.SYSTEM);
         }
         return ctx;
     }
