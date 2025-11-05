@@ -2,6 +2,7 @@ package org.sunbird.telemetry.logger;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.sunbird.common.Constants;
 import org.sunbird.common.Platform;
 import org.sunbird.common.exception.MiddlewareException;
 import org.sunbird.common.exception.ResponseCode;
@@ -37,10 +38,12 @@ public class TelemetryManager {
 	 * @param params
 	 */
 
-	public static void access(Map<String, String> context, Map<String, Object> params) {
-		String event = TelemetryGenerator.access(context, params);
-		telemetryHandler.send(event, Level.INFO, true);
-	}
+    public static void access(Map<String, String> context, Map<String, Object> params) {
+        Map<String, String> ctx = enrichContextWithUid(context);
+        Map<String, Object> enrichedParams = ensureParamsWithUid(params);
+        String event = TelemetryGenerator.access(ctx, enrichedParams);
+        telemetryHandler.send(event, Level.INFO, true);
+    }
 
 	/**
 	 * To log only message as a telemetry event.
@@ -197,7 +200,14 @@ public class TelemetryManager {
 			}
 		}
 
-		String event = TelemetryGenerator.search(reqContext, query, filters, sort, null, size, topN, type);
+        String uid = TelemetryRequestContext.getUserId();
+        if (StringUtils.isNotBlank(uid)) {
+            if (reqContext == null) reqContext = new HashMap<>();
+            reqContext.put(TelemetryParams.ACTOR.name(), uid);
+            reqContext.put(Constants.USER_ID, uid);
+        }
+
+        String event = TelemetryGenerator.search(reqContext, query, filters, sort, null, size, topN, type);
 		telemetryHandler.send(event, Level.INFO, true);
 	}
 
@@ -210,12 +220,19 @@ public class TelemetryManager {
 	 */
 	private static void log(String message, Map<String, Object> params, String logLevel) {
 		Map<String, String> context = getContext();
-		String event = TelemetryGenerator.log(context, "system", logLevel, message, null, params);
+        Map<String, Object> enrichedParams = ensureParamsWithUid(params);
+		String event = TelemetryGenerator.log(context, Constants.SYSTEM, logLevel, message, null, enrichedParams);
 		telemetryHandler.send(event, Level.getLevel(logLevel));
 	}
 
 	private static Map<String, String> getContext() {
 		Map<String, String> context = new HashMap<String, String>();
+        String uid = TelemetryRequestContext.getUserId();
+
+        if (StringUtils.isNotBlank(uid)) {
+            context.put(TelemetryParams.ACTOR.name(), uid);
+            context.put(Constants.USER_ID, uid);
+        }
 		context.put(TelemetryParams.ACTOR.name(), "org.sunbird.learning.platform");
 		context.put(TelemetryParams.CHANNEL.name(), getContextValue("CHANNEL_ID", DEFAULT_CHANNEL_ID));
 		context.put(TelemetryParams.ENV.name(), getContextValue(TelemetryParams.ENV.name(), "system"));
@@ -232,4 +249,29 @@ public class TelemetryManager {
 		String event = TelemetryGenerator.log(context, "payload", Level.INFO.name(), message, null, null);
 		telemetryHandler.send(event, Level.INFO, true);
 	}
+
+    private static Map<String, Object> ensureParamsWithUid(Map<String, Object> params) {
+        String uid = TelemetryRequestContext.getUserId();
+        if (StringUtils.isNotBlank(uid)) {
+            if (params == null) params = new HashMap<>();
+            params.put(Constants.USER_ID, uid);
+        }
+        return params;
+    }
+
+    private static Map<String, String> enrichContextWithUid(Map<String, String> context) {
+        String uid = TelemetryRequestContext.getUserId();
+        Map<String, String> ctx = (context == null) ? new HashMap<>() : new HashMap<>(context);
+        if (StringUtils.isNotBlank(uid)) {
+            ctx.put(TelemetryParams.ACTOR.name(), uid);
+            ctx.put(Constants.USER_ID, uid);
+        }
+        if (!ctx.containsKey(TelemetryParams.CHANNEL.name())) {
+            ctx.put(TelemetryParams.CHANNEL.name(), DEFAULT_CHANNEL_ID);
+        }
+        if (!ctx.containsKey(TelemetryParams.ENV.name())) {
+            ctx.put(TelemetryParams.ENV.name(), Constants.SYSTEM);
+        }
+        return ctx;
+    }
 }
