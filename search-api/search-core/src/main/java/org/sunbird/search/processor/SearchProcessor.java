@@ -340,6 +340,7 @@ public class SearchProcessor {
 	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	private QueryBuilder prepareSearchQuery(SearchDTO searchDTO) {
+        resetInnerHitTracking();
 		BoolQueryBuilder boolQuery = new BoolQueryBuilder();
 		QueryBuilder queryBuilder = null;
 		String totalOperation = searchDTO.getOperation();
@@ -547,30 +548,62 @@ public class SearchProcessor {
 		}
 	}
 
+    private static final Set<String> ADDED_INNER_HIT_PATHS = new HashSet<>();
+
     private QueryBuilder checkNestedProperty(QueryBuilder queryBuilder, String propertyName) {
-        String cleanProp = propertyName.replaceAll(SearchConstants.RAW_FIELD_EXTENSION, "");
+        if (propertyName == null || propertyName.trim().isEmpty()) {
+            return queryBuilder;
+        }
+
+        // Remove .raw, .keyword or other suffixes from property name
+        String cleanProp = propertyName
+                .replaceAll(SearchConstants.RAW_FIELD_EXTENSION, "")
+                .replaceAll("\\.keyword$", "");
+
+        // Not a nested property (no dot)
         if (!cleanProp.contains(".")) {
             return queryBuilder;
         }
 
         String[] parts = cleanProp.split("\\.");
         if (parts.length == 2) {
-            return QueryBuilders.nestedQuery(
-                    parts[0],
-                    queryBuilder,
-                    org.apache.lucene.search.join.ScoreMode.None
-            ).innerHit(new InnerHitBuilder());
-        }
-
-        for (int i = parts.length - 2; i >= 0; i--) {
-            String path = String.join(".", Arrays.copyOfRange(parts, 0, i + 1));
-            queryBuilder = QueryBuilders.nestedQuery(
+            String path = parts[0];
+            QueryBuilder nested = QueryBuilders.nestedQuery(
                     path,
                     queryBuilder,
                     org.apache.lucene.search.join.ScoreMode.None
-            ).innerHit(new InnerHitBuilder());
+            );
+
+            // Add inner_hit only once per nested path
+            if (!ADDED_INNER_HIT_PATHS.contains(path)) {
+                ((org.elasticsearch.index.query.NestedQueryBuilder) nested)
+                        .innerHit(new InnerHitBuilder().setName(path));
+                ADDED_INNER_HIT_PATHS.add(path);
+            }
+
+            return nested;
         }
+        for (int i = parts.length - 2; i >= 0; i--) {
+            String path = String.join(".", Arrays.copyOfRange(parts, 0, i + 1));
+
+            QueryBuilder nested = QueryBuilders.nestedQuery(
+                    path,
+                    queryBuilder,
+                    org.apache.lucene.search.join.ScoreMode.None
+            );
+            if (!ADDED_INNER_HIT_PATHS.contains(path)) {
+                ((org.elasticsearch.index.query.NestedQueryBuilder) nested)
+                        .innerHit(new InnerHitBuilder().setName(path));
+                ADDED_INNER_HIT_PATHS.add(path);
+            }
+
+            queryBuilder = nested;
+        }
+
         return queryBuilder;
+    }
+    private static void resetInnerHitTracking() {
+        ADDED_INNER_HIT_PATHS.clear();
     }
 
 
