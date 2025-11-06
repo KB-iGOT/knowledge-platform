@@ -6,12 +6,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang.StringUtils;
+import org.apache.lucene.search.join.ScoreMode;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.index.query.*;
 import org.elasticsearch.index.query.MultiMatchQueryBuilder.Type;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.aggregations.*;
+import org.elasticsearch.search.aggregations.Aggregation;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
@@ -551,16 +555,16 @@ public class SearchProcessor {
     private static final Set<String> ADDED_INNER_HIT_PATHS = new HashSet<>();
 
     private QueryBuilder checkNestedProperty(QueryBuilder queryBuilder, String propertyName) {
-        if (propertyName == null || propertyName.trim().isEmpty()) {
+        if (StringUtils.isBlank(propertyName)) {
             return queryBuilder;
         }
 
-        // Remove .raw, .keyword or other suffixes from property name
+        // Remove suffixes like .raw or .keyword using constants
         String cleanProp = propertyName
                 .replaceAll(SearchConstants.RAW_FIELD_EXTENSION, "")
-                .replaceAll("\\.keyword$", "");
+                .replaceAll(SearchConstants.KEYWORD_SUFFIX_REGEX, "");
 
-        // Not a nested property (no dot)
+        // Not nested (no dot)
         if (!cleanProp.contains(".")) {
             return queryBuilder;
         }
@@ -568,16 +572,14 @@ public class SearchProcessor {
         String[] parts = cleanProp.split("\\.");
         if (parts.length == 2) {
             String path = parts[0];
-            QueryBuilder nested = QueryBuilders.nestedQuery(
+            NestedQueryBuilder nested = QueryBuilders.nestedQuery(
                     path,
                     queryBuilder,
-                    org.apache.lucene.search.join.ScoreMode.None
+                    ScoreMode.None
             );
 
-            // Add inner_hit only once per nested path
             if (!ADDED_INNER_HIT_PATHS.contains(path)) {
-                ((org.elasticsearch.index.query.NestedQueryBuilder) nested)
-                        .innerHit(new InnerHitBuilder().setName(path));
+                nested.innerHit(new InnerHitBuilder().setName(path));
                 ADDED_INNER_HIT_PATHS.add(path);
             }
 
@@ -586,14 +588,13 @@ public class SearchProcessor {
         for (int i = parts.length - 2; i >= 0; i--) {
             String path = String.join(".", Arrays.copyOfRange(parts, 0, i + 1));
 
-            QueryBuilder nested = QueryBuilders.nestedQuery(
+            NestedQueryBuilder nested = QueryBuilders.nestedQuery(
                     path,
                     queryBuilder,
-                    org.apache.lucene.search.join.ScoreMode.None
+                    ScoreMode.None
             );
             if (!ADDED_INNER_HIT_PATHS.contains(path)) {
-                ((org.elasticsearch.index.query.NestedQueryBuilder) nested)
-                        .innerHit(new InnerHitBuilder().setName(path));
+                nested.innerHit(new InnerHitBuilder().setName(path));
                 ADDED_INNER_HIT_PATHS.add(path);
             }
 

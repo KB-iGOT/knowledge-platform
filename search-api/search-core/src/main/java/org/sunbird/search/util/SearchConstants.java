@@ -130,6 +130,8 @@ public class SearchConstants {
     public static final String CHANNEL_DEFAULT = "channel.default";
     public static final String CONSUMER_ID = "CONSUMER_ID";
     public static final String LEARNING_PLATFORM = "learning.platform";
+    public static final String KEYWORD_SUFFIX_REGEX = "\\.keyword$";
+
 
 
 }
