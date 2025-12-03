@@ -81,4 +81,19 @@ object ContentConstants {
     val UPDATE: String = "UPDATE";
     val SEND_TO_PUBLISH: String = "SentToPublish";
     val REVIEW: String = "Review";
+    val SOURCE_COLLECTION_ID: String = "sourceCollectionId"
+    val CREATED_FOR: String = "createdFor"
+    val ORGANISATION: String = "organisation"
+    val CREATOR_CONTACTS: String = "creatorContacts"
+    val FRAMEWORK: String = "framework"
+    val PREVIOUS_VERSION_COURSE_ID: String = "previousVersionCourseId"
+    val CONTENT_VERSION: String = "contentVersion"
+    val CONTENT_VERSION_INFO: String = "contentVersionInfo"
+    val CODE: String = "code"
+    val LANGUAGE: String = "language"
+    val PRIMARY_CATEGORY: String = "primaryCategory"
+    val POSTER_IMAGE: String = "posterImage"
+    val APP_ICON: String = "appIcon"
+    val CREATOR_LOGO: String = "creatorLogo"
+    val CONTENT_NAME: String = "contentName"
 }
