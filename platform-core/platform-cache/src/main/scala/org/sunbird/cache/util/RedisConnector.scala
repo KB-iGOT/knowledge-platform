@@ -12,7 +12,9 @@ trait RedisConnector {
 	private val PORT = Platform.getInteger("redis.port", 6379)
 	private val MAX_CONNECTIONS = Platform.getInteger("redis.maxConnections", 128)
 	private val INDEX = Platform.getInteger("redis.dbIndex", 0)
-	private val jedisPool: JedisPool = new JedisPool(getConfig(), HOST, PORT)
+	private val CONNECTION_TIMEOUT = Platform.getInteger("redis.connection.timeout", 10000)
+	private val SOCKET_TIMEOUT = Platform.getInteger("redis.socket.timeout", 10000)
+	private val jedisPool: JedisPool = new JedisPool(getConfig(), HOST, PORT, CONNECTION_TIMEOUT, SOCKET_TIMEOUT, null, INDEX)
 
 	/**
 	 * This Method Returns a connection object from connection pool.
