@@ -927,13 +927,12 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
       val appIcon = oldMeta.getOrDefault(ContentConstants.APP_ICON, "").asInstanceOf[String]
       val creatorLogo = oldMeta.getOrDefault(ContentConstants.CREATOR_LOGO, "").asInstanceOf[String]
 
-      if (!"Retired".equalsIgnoreCase(status))
-        throw new ClientException("ERR_INVALID_CONTENT_STATUS", s"Course $sourceCollectionId must be RETIRED to create new version")
+      if (!StringUtils.equalsIgnoreCase(status, "Live"))
+        throw new ClientException("ERR_INVALID_CONTENT_STATUS", s"Content $sourceCollectionId must be in Live status")
 
       // DETERMINE NEXT VERSION
       val oldVersion = Option(oldMeta.get(ContentConstants.CONTENT_VERSION)).map(_.toString).getOrElse("v1")
       var nextVersionNum = extractVersionNumber(oldVersion) + 1
-      val versionSuffixPattern = "(?i)\\s*-\\s*v\\s*\\d+$".r
 
       // check contentVersionInfo list
       val versionInfoObj = oldMeta.getOrDefault(ContentConstants.CONTENT_VERSION_INFO, new java.util.ArrayList[java.util.Map[String, AnyRef]]())
