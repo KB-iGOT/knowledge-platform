@@ -81,4 +81,25 @@ object ContentConstants {
     val UPDATE: String = "UPDATE";
     val SEND_TO_PUBLISH: String = "SentToPublish";
     val REVIEW: String = "Review";
+    val ERR_INVALID_RETIREMENT_DATE:String = "ERR_INVALID_RETIREMENT_DATE";
+    val ERR_LAST_ENROLLMENT_DATE: String = "ERR_LAST_ENROLLMENT_DATE";
+    val LAST_ENROLLMENT_DATE: String = "lastEnrollmentDate";
+    val RETIREMENT_DATE: String = "retirementDate";
+    val ERR_CONTENT_ID_MISSING = "Missing required field: contentId.";
+    val ERR_CONTENT_ID_BLANK = "contentId cannot be blank.";
+    val ERR_INVALID_REASON = "ERR_INVALID_REASON";
+    val ERR_MISSING_REASON = "Missing required field: reason.";
+    val CONTENT_ID = "contentId";
+    val REASON = "reason";
+    val ERR_MISSING_LAST_ENROLLMENT_DATE = "Invalid or empty lastEnrollmentDate.";
+    val REASON_CANNOT_BE_EMPTY = "Reason cannot be empty.";
+    val MISSING_RETIREMENT_DATE = "Missing required field: retirementDate.";
+    val ERR_INVALID_RETIREMENT_DATE_MSG = "Missing required field: retirementDate.";
+    val ERR_INVALID_DATE_ORDER = "ERR_INVALID_DATE_ORDER";
+    val ERR_INVALID_DATE_ORDER_MSG = "retirementDate must be greater than lastEnrollmentDate."
+    val ERR_CONTENT_PART_OF_COLLECTION = "ERR_CONTENT_PART_OF_COLLECTION"
+    val ERR_CONTENT_PART_OF_COLLECTION_MSG = "Content cannot be retired as it is part of a collection."
+
+    val ERR_CONTENT_HAS_ACTIVE_PLAN = "ERR_CONTENT_HAS_ACTIVE_PLAN"
+    val ERR_CONTENT_HAS_ACTIVE_PLAN_MSG = "Content cannot be retired as it is part of an active learning plan."
 }

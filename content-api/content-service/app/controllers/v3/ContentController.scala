@@ -265,4 +265,15 @@ class ContentController @Inject()(@Named(ActorNames.CONTENT_ACTOR) contentActor:
         getResult(ApiId.IMPORT_CONTENT, contentActor, contentRequest)
     }
 
+  def scheduleRetirement = Action.async { implicit request =>
+    val headers = commonHeaders()
+
+    val wrapper = body()
+    wrapper.putAll(headers)
+
+    val contentRequest = getRequest(wrapper, headers, "scheduleRetirement")
+    setRequestContext(contentRequest, version, objectType, schemaName)
+    getResult(ApiId.RETIRE_SCHEDULER_V1, contentActor, contentRequest)
+  }
+
 }

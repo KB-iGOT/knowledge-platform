@@ -94,7 +94,6 @@ object ApiId {
   val PUBLISH_EVENT = "api.event.publish"
 
 	//Object APIs
-	val READ_OBJECT = "api.object.read"
 
 	//Collection CSV APIs
 	val IMPORT_CSV = "api.collection.import"

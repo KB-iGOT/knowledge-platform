@@ -67,6 +67,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			case "createMLContent" => createMLContent(request)
 			case "reviewMLContent" => reviewMLContent(request)
 			case "updateReviewStatusMLContent" => updateReviewStatusMLContent(request)
+      case "scheduleRetirement" => scheduleRetirement(request)
 			case _ => ERROR(request.getOperation)
 		}
 	}
@@ -289,6 +290,9 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 	def retire(request: Request): Future[Response] = {
 		RetireManager.retire(request)
 	}
+  def scheduleRetirement(request: Request): Future[Response] = {
+    RetireManager.scheduleRetirement(request)
+  }
 	def discard(request: Request): Future[Response] = {
 		RequestUtil.restrictProperties(request)
 		DiscardManager.discard(request)
