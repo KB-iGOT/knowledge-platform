@@ -291,6 +291,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 	def retire(request: Request): Future[Response] = {
 		RetireManager.retire(request)
 	}
+  
   def scheduleRetirement(request: Request): Future[Response] = {
     RetireManager.scheduleRetirement(request)
   }
