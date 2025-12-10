@@ -107,6 +107,6 @@ object ApiId {
 	val REVIEW_ML_CONTENT = "api.content.ml.review"
 
   val UPDATE_REVIEW_STATUS_ML_CONTENT = "api.content.ml.update.review"
-  val RETIRE_SCHEDULER_V1: String = "api.content.v1.retire.scheduler"
-  val VALIDATE_RETIREMENT= "api.content.v1.retire.validation"
+    val RETIRE_SCHEDULER_V1: String = "api.content.v1.retire.scheduler"
+    val VALIDATE_RETIREMENT= "api.content.v1.retire.validation"
 }
