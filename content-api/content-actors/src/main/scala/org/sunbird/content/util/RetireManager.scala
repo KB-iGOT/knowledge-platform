@@ -29,8 +29,9 @@ import org.sunbird.util.RequestUtil
 import org.sunbird.utils.HierarchyConstants
 
 import java.time.Clock.system
-import java.time.Instant
-import java.time.format.DateTimeFormatter
+import java.time.{Instant, ZoneOffset}
+import java.time.format.{DateTimeFormatter, DateTimeParseException}
+import java.time.temporal.ChronoUnit
 import scala.collection.JavaConversions._
 import scala.collection.JavaConverters.asScalaBufferConverter
 import scala.collection.mutable.ListBuffer
@@ -39,14 +40,20 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 object RetireManager {
     val finalStatus: util.List[String] = util.Arrays.asList("Flagged", "Live", "Unlisted")
     private val kfClient = new KafkaClient
-    private val logger: Logger = LoggerFactory.getLogger("RetireManager")
+    private val retirementRequestKeyspace: String =
+      Platform.getString(ContentConstants.SUNBIRD_COURSE_KEYSPACE, "sunbird_courses")
+
+    private val retirementRequestTable: String =
+      Platform.getString(ContentConstants.CONTENT_RETIREMENT_RQST_TABLE, "content_retirement_requests")
 
     private val retirementRequestStore =
       new ExternalStore(
-        ContentConstants.SUNBIRD_KEYSPACE,
-        ContentConstants.CONTENT_RETIREMENT_RQST_TABLE,
+        retirementRequestKeyspace,
+        retirementRequestTable,
         util.Arrays.asList(ContentConstants.RETITEMENT_PRIMARY_KEY)
       )
+
+    private val logger: Logger = LoggerFactory.getLogger("RetireManager")
 
     def retire(request: Request)(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Response] = {
         validateRequest(request)
@@ -68,12 +75,13 @@ object RetireManager {
       System.out.println("Inside scheduleRetirement method of RetireManager::")
       validateRequestForContentRetirement(request)
       val outerMap = request.getRequest
-      val reqMap = Option(outerMap.get("request"))
+      val reqMap = Option(outerMap.get(ContentConstants.RQST))
         .map(_.asInstanceOf[java.util.Map[String, AnyRef]])
         .getOrElse(throw new ClientException(
           ContentConstants.ERR_INVALID_REQUEST,
           "Request body is missing."
         ))
+      reqMap.put(ContentConstants.USER_ID_RAISED, extractUserId(request))
       val contentId = Option(reqMap.get(ContentConstants.CONTENT_ID))
         .map(_.toString.trim)
         .filter(StringUtils.isNotBlank)
@@ -100,8 +108,8 @@ object RetireManager {
           .getOrElse {
             val m = new java.util.HashMap[String, AnyRef]()
             val id =
-              Option(request.getContext.get("identifier"))
-                .orElse(Option(outerMap.get("identifier")))
+              Option(request.getContext.get(ContentConstants.IDENTIFIER))
+                .orElse(Option(outerMap.get(ContentConstants.IDENTIFIER)))
                 .map(_.toString.trim)
                 .filter(StringUtils.isNotBlank)
                 .getOrElse(throw new ClientException(
@@ -178,11 +186,13 @@ object RetireManager {
               "Content metadata error, status is blank for identifier: " + node.getIdentifier
             )
           // mutate request for systemUpdate
-          request.getRequest.put("contentRetiredStatus", "PendingRetirement")
+          request.getRequest.put(ContentConstants.CONTENT_RETIREMENT_STS, ContentConstants.PENDING_RETIREMENT)
+          request.getRequest.put(ContentConstants.LAST_ENROLLMENT_DATE, request.getRequest.get(ContentConstants.PENDING_RETIREMENT))
+          request.getRequest.put(ContentConstants.RETIREMENT_DATE, request.getRequest.get(ContentConstants.PENDING_RETIREMENT))
           request.getRequest.put("versionKey", metadata.get("versionKey"))
 
           RequestUtil.restrictProperties(request)
-          request.getContext.put("identifier", id)
+          request.getContext.put(ContentConstants.IDENTIFIER, id)
 
           // build nodeList for systemUpdate
           val nodeList = new util.ArrayList[Node]()
@@ -214,24 +224,23 @@ object RetireManager {
                                            reqMap: java.util.Map[String, AnyRef]
                                           ): util.Map[String, AnyRef] = {
 
-      val m = new util.HashMap[String, AnyRef]()
+      val retirementMap = new util.HashMap[String, AnyRef]()
 
       // ExternalStore.insert uses "identifier" to set primaryKey(0) -> content_id
-      m.put("identifier", contentId)
+      retirementMap.put(ContentConstants.IDENTIFIER, contentId)
 
       // Table columns
-      m.put("request_id", UUID.randomUUID().toString)
+      retirementMap.put(ContentConstants.RQST_ID, UUID.randomUUID().toString)
 
       // Reason & user
-      val reason        = Option(reqMap.get("reason")).map(_.toString).getOrElse("")
-      val userIdRaised  = Option(reqMap.get("userIdRaised")).map(_.toString).getOrElse("")
-
-      m.put("reason_for_retirement", reason)
-      m.put("user_id_raised", userIdRaised)
+      val reason        = Option(reqMap.get(ContentConstants.REASON)).map(_.toString).getOrElse("")
+      val userIdRaised  = Option(reqMap.get(ContentConstants.USER_ID_RAISED)).map(_.toString).getOrElse("")
+      retirementMap.put(ContentConstants.RSN_FOR_RETIREMENT, reason)
+      retirementMap.put(ContentConstants.USER_ID_RAISED_FIELD, userIdRaised)
 
       // Parse dates from ISO string to Cassandra `date`
-      val lastEnrollmentStr = Option(reqMap.get("lastEnrollmentDate")).map(_.toString)
-      val retirementStr     = Option(reqMap.get("retirementDate")).map(_.toString)
+      val lastEnrollmentStr = Option(reqMap.get(ContentConstants.LAST_ENROLLMENT_DATE)).map(_.toString)
+      val retirementStr     = Option(reqMap.get(ContentConstants.RETIREMENT_DATE)).map(_.toString)
 
       val isoFormatter = DateTimeFormatter.ISO_INSTANT
 
@@ -240,14 +249,14 @@ object RetireManager {
           val instant = Instant.from(isoFormatter.parse(s))
           LocalDate.fromMillisSinceEpoch(instant.toEpochMilli)
         }
-      toLocalDateOpt(lastEnrollmentStr).foreach(d => m.put("last_enrollment_date", d))
-      toLocalDateOpt(retirementStr).foreach(d => m.put("retirement_date", d))
+      toLocalDateOpt(lastEnrollmentStr).foreach(date => retirementMap.put(ContentConstants.LST_ENR_DATE, date))
+      toLocalDateOpt(retirementStr).foreach(date => retirementMap.put(ContentConstants.RET_DATE, date))
       val now = new Date()
-      m.put("created_at", now)
-      m.put("updated_at", now)
-      m.put("status", "Pending")
-      m.put("approved", Boolean.box(false))
-      m
+      retirementMap.put(ContentConstants.CREATED_AT, now)
+      retirementMap.put(ContentConstants.UPDATED_AT, now)
+      retirementMap.put(ContentConstants.STATUS, ContentConstants.PENDING)
+      retirementMap.put(ContentConstants.APPROVED, Boolean.box(false))
+      retirementMap
     }
 
     private def insertRetirementRequest(contentId: String,
@@ -258,15 +267,14 @@ object RetireManager {
       retirementRequestStore.insert(rowMap, propsMapping)
     }
 
-
     private def validateNoCbPlanForContent(contentId: String)
                                           (implicit ec: ExecutionContext): Future[Unit] = {
 
       // no columns needed just to check existence
-      val extProps: List[String] = Nil
-      val propsMapping: Map[String, String] = Map.empty
+      val externalProperties: List[String] = Nil
+      val propertyTypeMapping: Map[String, String] = Map.empty
 
-      read(contentId, extProps, propsMapping).map { resp =>
+      read(contentId, externalProperties, propertyTypeMapping).map { resp =>
         val code = resp.getResponseCode // assuming Response has this
         code match {
           case ResponseCode.OK =>
@@ -285,18 +293,19 @@ object RetireManager {
       }
     }
 
-
-    def read(identifier: String, extProps: List[String], propsMapping: Map[String, String])(implicit ec: ExecutionContext): Future[Response] = {
+    def read(identifier: String, externalProperties: List[String], propertyTypeMapping: Map[String, String])(implicit ec: ExecutionContext): Future[Response] = {
       val select = QueryBuilder.select()
-      if(null != extProps && !extProps.isEmpty){
-        extProps.foreach(prop => {
-          if("blob".equalsIgnoreCase(propsMapping.getOrElse(prop, "")))
+      if(null != externalProperties && !externalProperties.isEmpty){
+        externalProperties.foreach(prop => {
+          if("blob".equalsIgnoreCase(propertyTypeMapping.getOrElse(prop, "")))
             select.fcall("blobAsText", QueryBuilder.column(prop)).as(prop)
           else
             select.column(prop).as(prop)
         })
       }
-      val selectQuery = select.from("sunbird", "cb_plan_v2_content_lookup")
+      val keyspace = Platform.getString(ContentConstants.SUNBIRD__KEYSPACE, "sunbird")
+      val table    = Platform.getString(ContentConstants.CB_PLAN_LOOKUP_TABLE, "cb_plan_v2_content_lookup")
+      val selectQuery = select.from(keyspace, table)
       val clause: Clause = QueryBuilder.eq(ContentConstants.CONTENT_ID, identifier)
       selectQuery.where.and(clause)
       try {
@@ -304,7 +313,7 @@ object RetireManager {
         session.executeAsync(selectQuery).asScala.map(resultSet => {
           if (resultSet.iterator().hasNext) {
             val row = resultSet.one()
-            val externalMetadataMap = extProps.map(prop => prop -> row.getObject(prop)).toMap
+            val externalMetadataMap = externalProperties.map(prop => prop -> row.getObject(prop)).toMap
             val response = ResponseHandler.OK()
             import scala.collection.JavaConverters._
             response.putAll(externalMetadataMap.asJava)
@@ -391,20 +400,37 @@ object RetireManager {
       node
     })
 
+    private def extractUserId(req: Request): String = {
+      // 1) First try context (provided by controller)
+      val fromContext = Option(req.getContext.get("X-Authenticated-Userid"))
+        .map(_.toString)
+        .filter(StringUtils.isNotBlank)
+      if (fromContext.isDefined) return fromContext.get
+
+      // 2) Then try Request.params.uid (same fallback Telemetry uses)
+      val params = req.getParams
+      if (params != null && params.getUid != null)
+        return params.getUid
+
+      // 3) Nothing found
+      ""
+    }
+
     private def validateRequest(request: Request) = {
-        val contentId: String = request.get(ContentConstants.IDENTIFIER).asInstanceOf[String]
-        if (StringUtils.isBlank(contentId))
-            throw new ClientException(ContentConstants.ERR_INVALID_CONTENT_ID, "Please Provide Valid Content Identifier.")
+      val contentId: String = request.get(ContentConstants.IDENTIFIER).asInstanceOf[String]
+      if (StringUtils.isBlank(contentId))
+        throw new ClientException(ContentConstants.ERR_INVALID_CONTENT_ID, "Please Provide Valid Content Identifier.")
     }
 
     private def validateRequestForContentRetirement(request: Request): Unit = {
       val outerMap = request.getRequest
-      val reqMap = Option(outerMap.get("request"))
+      val reqMap = Option(outerMap.get(ContentConstants.RQST))
         .map(_.asInstanceOf[java.util.Map[String, AnyRef]])
         .getOrElse(throw new ClientException(
           ContentConstants.ERR_INVALID_REQUEST,
-            "Request body is missing."
+          "Request body is missing."
         ))
+
       val contentId = Option(reqMap.get(ContentConstants.CONTENT_ID))
         .map(_.toString.trim)
         .filter(StringUtils.isNotBlank)
@@ -412,6 +438,7 @@ object RetireManager {
           ContentConstants.ERR_INVALID_CONTENT_ID,
           ContentConstants.ERR_CONTENT_ID_MISSING
         ))
+
       val reason = Option(reqMap.get(ContentConstants.REASON))
         .map(_.toString.trim)
         .filter(StringUtils.isNotBlank)
@@ -419,34 +446,75 @@ object RetireManager {
           ContentConstants.ERR_INVALID_REASON,
           ContentConstants.ERR_MISSING_REASON
         ))
-      val lastEnrollmentDate = Option(reqMap.get(ContentConstants.LAST_ENROLLMENT_DATE))
+
+      val lastEnrollmentDateStr = Option(reqMap.get(ContentConstants.LAST_ENROLLMENT_DATE))
         .map(_.toString.trim)
         .filter(StringUtils.isNotBlank)
         .getOrElse(throw new ClientException(
           ContentConstants.ERR_LAST_ENROLLMENT_DATE,
           ContentConstants.ERR_MISSING_LAST_ENROLLMENT_DATE
         ))
-      val retirementDate = Option(reqMap.get(ContentConstants.RETIREMENT_DATE))
+
+      val retirementDateStr = Option(reqMap.get(ContentConstants.RETIREMENT_DATE))
         .map(_.toString.trim)
         .filter(StringUtils.isNotBlank)
         .getOrElse(throw new ClientException(
           ContentConstants.ERR_INVALID_RETIREMENT_DATE,
           ContentConstants.MISSING_RETIREMENT_DATE
         ))
-      if (retirementDate <= lastEnrollmentDate)
+      val lastEnrollmentInstant =
+        try {
+          Instant.parse(lastEnrollmentDateStr)
+        } catch {
+          case _: DateTimeParseException =>
+            throw new ClientException(
+              ContentConstants.ERR_LAST_ENROLLMENT_DATE,
+              s"Invalid lastEnrollmentDate format: $lastEnrollmentDateStr"
+            )
+        }
+
+      val retirementInstant =
+        try {
+          Instant.parse(retirementDateStr)
+        } catch {
+          case _: DateTimeParseException =>
+            throw new ClientException(
+              ContentConstants.ERR_INVALID_RETIREMENT_DATE,
+              s"Invalid retirementDate format: $retirementDateStr"
+            )
+        }
+
+      // Convert to LocalDate (date-only, ignore time) and compute day gap
+      val lastEnrollmentDate = lastEnrollmentInstant.atZone(ZoneOffset.UTC).toLocalDate
+      val retirementDate     = retirementInstant.atZone(ZoneOffset.UTC).toLocalDate
+      val daysBetween        = ChronoUnit.DAYS.between(lastEnrollmentDate, retirementDate)
+
+      // Configurable min/max gap in days (with defaults 1 and 60)
+      val minGapDays =
+        Option(Platform.getString(ContentConstants.MIN_RETIREMENT_GAP_DAYS, "1"))
+          .map(_.toInt)
+          .getOrElse(1)
+      val maxGapDays =
+        Option(Platform.getString(ContentConstants.MAX_RETIREMENT_GAP_DAYS, "60"))
+          .map(_.toInt)
+          .getOrElse(60)
+
+      // Retirement must be after last enrollment AND within [minGapDays, maxGapDays]
+      if (daysBetween < minGapDays || daysBetween > maxGapDays) {
         throw new ClientException(
           ContentConstants.ERR_INVALID_DATE_ORDER,
-          ContentConstants.ERR_INVALID_DATE_ORDER_MSG
+          s"Retirement date must be between $minGapDays and $maxGapDays days after lastEnrollmentDate."
         )
+      }
     }
 
     private def updateNodesToRetire(request: Request, updateMetadataMap: util.Map[String, AnyRef])(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Response] = {
-        RedisCache.delete(request.get(ContentConstants.IDENTIFIER).asInstanceOf[String])
-        val updateReq = new Request(request)
-        updateReq.put(ContentConstants.IDENTIFIERS, java.util.Arrays.asList(request.get(ContentConstants.IDENTIFIER).asInstanceOf[String], request.get(ContentConstants.IDENTIFIER).asInstanceOf[String] + HierarchyConstants.IMAGE_SUFFIX))
-        updateReq.put(ContentConstants.METADATA, updateMetadataMap)
-        DataNode.bulkUpdate(updateReq).map(node => ResponseHandler.OK())
-    }
+          RedisCache.delete(request.get(ContentConstants.IDENTIFIER).asInstanceOf[String])
+          val updateReq = new Request(request)
+          updateReq.put(ContentConstants.IDENTIFIERS, java.util.Arrays.asList(request.get(ContentConstants.IDENTIFIER).asInstanceOf[String], request.get(ContentConstants.IDENTIFIER).asInstanceOf[String] + HierarchyConstants.IMAGE_SUFFIX))
+          updateReq.put(ContentConstants.METADATA, updateMetadataMap)
+          DataNode.bulkUpdate(updateReq).map(node => ResponseHandler.OK())
+      }
 
 
     private def handleCollectionToRetire(node: Node, request: Request, updateMetadataMap: Map[String, AnyRef])(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Response] = {
