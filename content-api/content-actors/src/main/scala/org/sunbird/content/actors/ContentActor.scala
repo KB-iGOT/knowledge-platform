@@ -68,7 +68,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			case "createMLContent" => createMLContent(request)
 			case "reviewMLContent" => reviewMLContent(request)
 			case "updateReviewStatusMLContent" => updateReviewStatusMLContent(request)
-      case "createVersionContent" => createNewVersionOfContent(request)
+			case "createVersionContent" => createNewVersionOfContent(request)
       case _ => ERROR(request.getOperation)
 				}
 		}

@@ -108,5 +108,5 @@ object ApiId {
 
 	val UPDATE_REVIEW_STATUS_ML_CONTENT = "api.content.ml.update.review"
 
-  val CREATE_VERSION_CONTENT = "api.content.version.create"
+	val CREATE_VERSION_CONTENT = "api.content.version.create"
 }
