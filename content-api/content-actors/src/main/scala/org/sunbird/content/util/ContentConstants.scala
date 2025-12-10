@@ -99,7 +99,6 @@ object ContentConstants {
     val ERR_INVALID_DATE_ORDER_MSG = "retirementDate must be greater than lastEnrollmentDate."
     val ERR_CONTENT_PART_OF_COLLECTION = "ERR_CONTENT_PART_OF_COLLECTION"
     val ERR_CONTENT_PART_OF_COLLECTION_MSG = "Content cannot be retired as it is part of a collection."
-
     val ERR_CONTENT_HAS_ACTIVE_PLAN = "ERR_CONTENT_HAS_ACTIVE_PLAN"
     val ERR_CONTENT_HAS_ACTIVE_PLAN_MSG = "Content cannot be retired as it is part of an active learning plan."
 }
