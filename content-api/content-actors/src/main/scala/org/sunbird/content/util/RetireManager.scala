@@ -176,40 +176,30 @@ object RetireManager {
               ContentConstants.ERR_INVALID_CONTENT_ID,
               s"Content is not found for identifier: $id"
             )
-
           val metadata = node.getMetadata
           val status   = Option(metadata.get("status")).map(_.toString).getOrElse("")
-
           if (StringUtils.isBlank(status))
             throw new ClientException(
               "ERR_METADATA_ISSUE",
               "Content metadata error, status is blank for identifier: " + node.getIdentifier
             )
-          // mutate request for systemUpdate
           request.getRequest.put(ContentConstants.CONTENT_RETIREMENT_STS, ContentConstants.PENDING_RETIREMENT)
           request.getRequest.put(ContentConstants.LAST_ENROLLMENT_DATE, request.getRequest.get(ContentConstants.PENDING_RETIREMENT))
           request.getRequest.put(ContentConstants.RETIREMENT_DATE, request.getRequest.get(ContentConstants.PENDING_RETIREMENT))
           request.getRequest.put("versionKey", metadata.get("versionKey"))
-
           RequestUtil.restrictProperties(request)
           request.getContext.put(ContentConstants.IDENTIFIER, id)
-
-          // build nodeList for systemUpdate
           val nodeList = new util.ArrayList[Node]()
           nodeList.add(node)
-
           val objectType =
             Option(request.getContext.get("objectType"))
               .map(_.asInstanceOf[String])
               .getOrElse("Content")
-
-          // use systemUpdate instead of DataNode.update
           val updateFut =
             if (objectType.toLowerCase.equals("collection"))
               DataNode.systemUpdate(request, nodeList, "content", Option(HierarchyManager.getHierarchy))
             else
               DataNode.systemUpdate(request, nodeList, "", None)
-
           updateFut.map { updatedNode =>
             val identifier: String = updatedNode.getIdentifier.replace(".img", "")
             logger.info("Marked content as PendingRetirement for identifier: " + identifier)
@@ -401,18 +391,13 @@ object RetireManager {
     })
 
     private def extractUserId(req: Request): String = {
-      // 1) First try context (provided by controller)
       val fromContext = Option(req.getContext.get("X-Authenticated-Userid"))
         .map(_.toString)
         .filter(StringUtils.isNotBlank)
       if (fromContext.isDefined) return fromContext.get
-
-      // 2) Then try Request.params.uid (same fallback Telemetry uses)
       val params = req.getParams
       if (params != null && params.getUid != null)
         return params.getUid
-
-      // 3) Nothing found
       ""
     }
 
@@ -483,13 +468,9 @@ object RetireManager {
               s"Invalid retirementDate format: $retirementDateStr"
             )
         }
-
-      // Convert to LocalDate (date-only, ignore time) and compute day gap
       val lastEnrollmentDate = lastEnrollmentInstant.atZone(ZoneOffset.UTC).toLocalDate
       val retirementDate     = retirementInstant.atZone(ZoneOffset.UTC).toLocalDate
       val daysBetween        = ChronoUnit.DAYS.between(lastEnrollmentDate, retirementDate)
-
-      // Configurable min/max gap in days (with defaults 1 and 60)
       val minGapDays =
         Option(Platform.getString(ContentConstants.MIN_RETIREMENT_GAP_DAYS, "1"))
           .map(_.toInt)
@@ -498,8 +479,6 @@ object RetireManager {
         Option(Platform.getString(ContentConstants.MAX_RETIREMENT_GAP_DAYS, "60"))
           .map(_.toInt)
           .getOrElse(60)
-
-      // Retirement must be after last enrollment AND within [minGapDays, maxGapDays]
       if (daysBetween < minGapDays || daysBetween > maxGapDays) {
         throw new ClientException(
           ContentConstants.ERR_INVALID_DATE_ORDER,
