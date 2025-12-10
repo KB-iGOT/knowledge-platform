@@ -103,6 +103,7 @@ POST      /content/v4/reject/:identifier           controllers.v4.ContentControl
 POST      /content/v4/mlcreate                     controllers.v4.ContentController.createMLContent
 POST      /content/v4/ml/review                     controllers.v4.ContentController.reviewMLContent
 POST      /content/v4/ml/update/reviewStatus       controllers.v4.ContentController.updateReviewStatusMLContent
+POST      /content/v5/copy                         controllers.v4.ContentController.createVersionContent
 
 # App v4 APIs
 POST      /app/v4/register                          controllers.v4.AppController.register
@@ -136,5 +137,3 @@ GET     /object/v4/read/:identifier              controllers.v4.ObjectController
 POST   /collection/v4/import/:collectionId           controllers.v4.CollectionController.importCollection(collectionId:String)
 GET    /collection/v4/export/:collectionId          controllers.v4.CollectionController.exportCollection(collectionId:String, fileType:Option[String])
 POST   /collection/v4/review/:identifier            controllers.v4.CollectionController.review(identifier:String)
-
-POST   /content/v5/copy            controllers.v4.ContentController.createVersionContent
