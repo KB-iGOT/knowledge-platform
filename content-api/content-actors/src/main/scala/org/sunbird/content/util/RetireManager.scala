@@ -5,6 +5,7 @@ import com.datastax.driver.core.querybuilder.{Clause, QueryBuilder}
 import com.google.common.util.concurrent.{FutureCallback, Futures, ListenableFuture, MoreExecutors}
 
 import java.util
+import java.util.Arrays
 import java.util.{Date, UUID}
 import org.apache.commons.collections4.CollectionUtils
 import org.apache.commons.lang.StringUtils
@@ -42,9 +43,9 @@ object RetireManager {
 
     private val retirementRequestStore =
       new ExternalStore(
-        "sunbird_courses",
-        "content_retirement_requests",
-        java.util.Arrays.asList("content_id")
+        ContentConstants.SUNBIRD_KEYSPACE,
+        ContentConstants.CONTENT_RETIREMENT_RQST_TABLE,
+        util.Arrays.asList(ContentConstants.RETITEMENT_PRIMARY_KEY)
       )
 
     def retire(request: Request)(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Response] = {
@@ -89,16 +90,29 @@ object RetireManager {
     }
 
     def isRetirementScheduled(request: Request)
-                             (implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Response] = {
+                             (implicit ec: ExecutionContext,
+                              oec: OntologyEngineContext): Future[Response] = {
       logger.info("Inside isRetirementScheduled method of RetireManager::")
-      validateRequestForContentRetirement(request)
       val outerMap = request.getRequest
-      val reqMap = Option(outerMap.get("request"))
-        .map(_.asInstanceOf[java.util.Map[String, AnyRef]])
-        .getOrElse(throw new ClientException(
-          ContentConstants.ERR_INVALID_REQUEST,
-          "Request body is missing."
-        ))
+      val reqMap: java.util.Map[String, AnyRef] =
+        Option(outerMap.get("request"))
+          .map(_.asInstanceOf[java.util.Map[String, AnyRef]])
+          .getOrElse {
+            val m = new java.util.HashMap[String, AnyRef]()
+            val id =
+              Option(request.getContext.get("identifier"))
+                .orElse(Option(outerMap.get("identifier")))
+                .map(_.toString.trim)
+                .filter(StringUtils.isNotBlank)
+                .getOrElse(throw new ClientException(
+                  ContentConstants.ERR_INVALID_CONTENT_ID,
+                  ContentConstants.ERR_CONTENT_ID_MISSING
+                ))
+
+            m.put(ContentConstants.CONTENT_ID, id)
+            outerMap.put("request", m)
+            m
+          }
       val contentId = Option(reqMap.get(ContentConstants.CONTENT_ID))
         .map(_.toString.trim)
         .filter(StringUtils.isNotBlank)
@@ -107,93 +121,94 @@ object RetireManager {
           ContentConstants.ERR_CONTENT_ID_MISSING
         ))
       for {
-        _ <- validateNoParentCollection(request)
-        _ <- validateNoCbPlanForContent(contentId)
-        _ <- insertRetirementRequest(contentId, reqMap)
-        resp <- markContentPendingRetirement(request)
-      } yield resp
-    }
-
-    def markContentPendingRetirement(request: Request)
-                                    (implicit ec: ExecutionContext,
-                                     oec: OntologyEngineContext): Future[Response] = {
-
-      val outerMap = request.getRequest
-      val reqMap = Option(outerMap.get("request"))
-        .map(_.asInstanceOf[java.util.Map[String, AnyRef]])
-        .getOrElse(throw new ClientException(
-          ContentConstants.ERR_INVALID_REQUEST,
-          "Request body is missing."
-        ))
-
-      val id = Option(reqMap.get(ContentConstants.CONTENT_ID))
-        .map(_.toString.trim)
-        .filter(StringUtils.isNotBlank)
-        .getOrElse(throw new ClientException(
-          ContentConstants.ERR_INVALID_CONTENT_ID,
-          ContentConstants.ERR_CONTENT_ID_MISSING
-        ))
-
-      val readReq = new Request()
-      readReq.setContext(new util.HashMap[String, AnyRef]() {{
-        put("graph_id", "domain")
-        put("version", "1.0")
-        put("objectType", "Content")
-        put("schemaName", "content")
-      }})
-      readReq.put("identifier", id)
-      readReq.setObjectType("Content")
-      readReq.put(ContentConstants.MODE, "read")
-
-      DataNode.read(readReq).flatMap { node =>
-        if (node == null)
-          throw new ClientException(
-            ContentConstants.ERR_INVALID_CONTENT_ID,
-            s"Content is not found for identifier: $id"
-          )
-
-        val metadata = node.getMetadata
-        val status   = Option(metadata.get("status")).map(_.toString).getOrElse("")
-
-        if (StringUtils.isBlank(status))
-          throw new ClientException(
-            "ERR_METADATA_ISSUE",
-            "Content metadata error, status is blank for identifier: " + node.getIdentifier
-          )
-        // mutate request for systemUpdate
-        request.getRequest.put("contentRetiredStatus", "PendingRetirement")
-        request.getRequest.put("versionKey", metadata.get("versionKey"))
-
-        RequestUtil.restrictProperties(request)
-        request.getContext.put("identifier", id)
-
-        // build nodeList for systemUpdate
-        val nodeList = new util.ArrayList[Node]()
-        nodeList.add(node)
-
-        val objectType =
-          Option(request.getContext.get("objectType"))
-            .map(_.asInstanceOf[String])
-            .getOrElse("Content")
-
-        // use systemUpdate instead of DataNode.update
-        val updateFut =
-          if (objectType.toLowerCase.equals("collection"))
-            DataNode.systemUpdate(request, nodeList, "content", Option(HierarchyManager.getHierarchy))
-          else
-            DataNode.systemUpdate(request, nodeList, "", None)
-
-        updateFut.map { updatedNode =>
-          val identifier: String = updatedNode.getIdentifier.replace(".img", "")
-          logger.info("Marked content as PendingRetirement for identifier: " + identifier)
-          ResponseHandler.OK
-            .put("node_id", identifier)
-            .put("identifier", identifier)
-        }
+        _    <- validateNoParentCollection(request)
+        _    <- validateNoCbPlanForContent(contentId)
+      } yield {
+        val resp = ResponseHandler.OK()
+        resp.put("identifier", contentId)
+        resp
       }
     }
 
 
+    def markContentPendingRetirement(request: Request)
+                                      (implicit ec: ExecutionContext,
+                                       oec: OntologyEngineContext): Future[Response] = {
+
+        val outerMap = request.getRequest
+        val reqMap = Option(outerMap.get("request"))
+          .map(_.asInstanceOf[java.util.Map[String, AnyRef]])
+          .getOrElse(throw new ClientException(
+            ContentConstants.ERR_INVALID_REQUEST,
+            "Request body is missing."
+          ))
+
+        val id = Option(reqMap.get(ContentConstants.CONTENT_ID))
+          .map(_.toString.trim)
+          .filter(StringUtils.isNotBlank)
+          .getOrElse(throw new ClientException(
+            ContentConstants.ERR_INVALID_CONTENT_ID,
+            ContentConstants.ERR_CONTENT_ID_MISSING
+          ))
+
+        val readReq = new Request()
+        readReq.setContext(new util.HashMap[String, AnyRef]() {{
+          put("graph_id", "domain")
+          put("version", "1.0")
+          put("objectType", "Content")
+          put("schemaName", "content")
+        }})
+        readReq.put("identifier", id)
+        readReq.setObjectType("Content")
+        readReq.put(ContentConstants.MODE, "read")
+
+        DataNode.read(readReq).flatMap { node =>
+          if (node == null)
+            throw new ClientException(
+              ContentConstants.ERR_INVALID_CONTENT_ID,
+              s"Content is not found for identifier: $id"
+            )
+
+          val metadata = node.getMetadata
+          val status   = Option(metadata.get("status")).map(_.toString).getOrElse("")
+
+          if (StringUtils.isBlank(status))
+            throw new ClientException(
+              "ERR_METADATA_ISSUE",
+              "Content metadata error, status is blank for identifier: " + node.getIdentifier
+            )
+          // mutate request for systemUpdate
+          request.getRequest.put("contentRetiredStatus", "PendingRetirement")
+          request.getRequest.put("versionKey", metadata.get("versionKey"))
+
+          RequestUtil.restrictProperties(request)
+          request.getContext.put("identifier", id)
+
+          // build nodeList for systemUpdate
+          val nodeList = new util.ArrayList[Node]()
+          nodeList.add(node)
+
+          val objectType =
+            Option(request.getContext.get("objectType"))
+              .map(_.asInstanceOf[String])
+              .getOrElse("Content")
+
+          // use systemUpdate instead of DataNode.update
+          val updateFut =
+            if (objectType.toLowerCase.equals("collection"))
+              DataNode.systemUpdate(request, nodeList, "content", Option(HierarchyManager.getHierarchy))
+            else
+              DataNode.systemUpdate(request, nodeList, "", None)
+
+          updateFut.map { updatedNode =>
+            val identifier: String = updatedNode.getIdentifier.replace(".img", "")
+            logger.info("Marked content as PendingRetirement for identifier: " + identifier)
+            ResponseHandler.OK
+              .put("node_id", identifier)
+              .put("identifier", identifier)
+          }
+        }
+      }
 
     private def createRetirementRequestRow(contentId: String,
                                            reqMap: java.util.Map[String, AnyRef]

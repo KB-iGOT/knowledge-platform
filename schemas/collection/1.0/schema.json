@@ -42,8 +42,7 @@
         "Processing",
         "FlagDraft",
         "FlagReview",
-        "Failed",
-        "PendingRetirement"
+        "Failed"
       ],
       "default": "Draft"
     },

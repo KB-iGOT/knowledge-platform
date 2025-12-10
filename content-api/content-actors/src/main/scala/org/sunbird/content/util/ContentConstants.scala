@@ -101,4 +101,7 @@ object ContentConstants {
     val ERR_CONTENT_PART_OF_COLLECTION_MSG = "Content cannot be retired as it is part of a collection."
     val ERR_CONTENT_HAS_ACTIVE_PLAN = "ERR_CONTENT_HAS_ACTIVE_PLAN"
     val ERR_CONTENT_HAS_ACTIVE_PLAN_MSG = "Content cannot be retired as it is part of an active learning plan."
+    val SUNBIRD_KEYSPACE = "sunbird_courses"
+    val CONTENT_RETIREMENT_RQST_TABLE = "content_retirement_requests";
+    val RETITEMENT_PRIMARY_KEY = "content_id"
 }
