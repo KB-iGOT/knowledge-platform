@@ -886,10 +886,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		}
 	}
 
-	def createNewVersionOfContent(request: Request)
-															 (implicit oec: OntologyEngineContext, ec: ExecutionContext): Future[Response] = {
-
-		// Validate Request
+	def createNewVersionOfContent(request: Request)(implicit oec: OntologyEngineContext, ec: ExecutionContext): Future[Response] = {
 		val sourceCollectionId = request.getRequest.get(ContentConstants.SOURCE_COLLECTION_ID).asInstanceOf[String]
 		val createdBy = request.getRequest.get(ContentConstants.CREATED_BY).asInstanceOf[String]
 		val creator = request.getRequest.get(ContentConstants.CREATOR).asInstanceOf[String]
@@ -915,7 +912,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		readReq.put(ContentConstants.MODE, "read")
 
 		DataNode.read(readReq).flatMap { oldNode =>
-
 			val oldMeta = oldNode.getMetadata
 			val status = oldMeta.getOrDefault(ContentConstants.STATUS, "").asInstanceOf[String]
 			val name = oldMeta.getOrDefault(ContentConstants.NAME, "").asInstanceOf[String]
@@ -951,8 +947,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					}
 				case _ =>
 			}
-
-			// compute highest existing
 			val highestExisting = versionList.asScala.toList.map { entry =>
 				val v = Option(entry.get("version")).map(_.toString).getOrElse("v1")
 				extractVersionNumber(v)
@@ -1001,7 +995,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 					put("schemaName", ContentConstants.CONTENT_SCHEMA_NAME)
 				}
 			})
-
 			create(createReq).flatMap { createResp =>
 				val newCourseId = createResp.get(ContentConstants.IDENTIFIER).asInstanceOf[String]
 
@@ -1013,9 +1006,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						put(ContentConstants.CONTENT_NAME, name)
 					}
 				}
-
 				versionList.add(newEntry)
-
 				val updateOldReq = new Request()
 				updateOldReq.setOperation("systemUpdate")
 				updateOldReq.setRequest(new java.util.HashMap[String, AnyRef]() {
@@ -1032,7 +1023,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						put(ContentConstants.IDENTIFIER, sourceCollectionId)
 					}
 				})
-
 				systemUpdate(updateOldReq).map { _ =>
 					val response = ResponseHandler.OK()
 					response.put("newVersionId", newCourseId)
@@ -1044,8 +1034,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		}
 	}
 
-
-  // Utility: Extract version number safely
   private def extractVersionNumber(v: String): Int = {
     if (v == null) return 1
     val s = v.toLowerCase.trim
