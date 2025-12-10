@@ -265,15 +265,22 @@ class ContentController @Inject()(@Named(ActorNames.CONTENT_ACTOR) contentActor:
         getResult(ApiId.IMPORT_CONTENT, contentActor, contentRequest)
     }
 
-  def scheduleRetirement = Action.async { implicit request =>
-    val headers = commonHeaders()
+    def scheduleRetirement = Action.async { implicit request =>
+      val headers = commonHeaders()
+      val wrapper = body()
+      wrapper.putAll(headers)
+      val contentRequest = getRequest(wrapper, headers, "scheduleRetirement")
+      setRequestContext(contentRequest, version, objectType, schemaName)
+      getResult(ApiId.RETIRE_SCHEDULER_V1, contentActor, contentRequest)
+    }
 
-    val wrapper = body()
-    wrapper.putAll(headers)
-
-    val contentRequest = getRequest(wrapper, headers, "scheduleRetirement")
-    setRequestContext(contentRequest, version, objectType, schemaName)
-    getResult(ApiId.RETIRE_SCHEDULER_V1, contentActor, contentRequest)
-  }
-
+    def isRetirementScheduled(identifier: String, mode: Option[String], fields: Option[String]) = Action.async { implicit request =>
+      val headers = commonReadHeaders()
+      val content = new java.util.HashMap().asInstanceOf[java.util.Map[String, Object]]
+      content.putAll(headers)
+      content.putAll(Map("identifier" -> identifier, "mode" -> mode.getOrElse("read"), "fields" -> fields.getOrElse("")).asJava)
+      val readRequest = getRequest(content, headers, "isRetirementScheduled")
+      setRequestContext(readRequest, version, objectType, schemaName)
+      getResult(ApiId.VALIDATE_RETIREMENT, contentActor, readRequest, true)
+    }
 }

@@ -68,6 +68,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			case "reviewMLContent" => reviewMLContent(request)
 			case "updateReviewStatusMLContent" => updateReviewStatusMLContent(request)
       case "scheduleRetirement" => scheduleRetirement(request)
+      case "isRetirementScheduled" => isRetirementScheduled(request)
 			case _ => ERROR(request.getOperation)
 		}
 	}
@@ -887,4 +888,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			ResponseHandler.OK().putAll(resultMap.asJava)
 		}
 	}
+
+  def isRetirementScheduled(request: Request): Future[Response] = {
+    RetireManager.isRetirementScheduled(request)
+  }
 }
