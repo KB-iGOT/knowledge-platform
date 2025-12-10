@@ -1027,18 +1027,18 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 	}
 
 	private def extractVersionNumber(v: String): Int = {
-    if (v == null) return 1
-    val s = v.toLowerCase.trim
-    val VersionRegex = ".*?v?\\s*(\\d+)(?:\\.\\d+)?$".r
-    s match {
-      case VersionRegex(n) => try {
-        n.toInt
-      } catch {
-        case _: Throwable => 1
-      }
-      case _ => 1
-    }
-  }
+		if (v == null) return 1
+		val s = v.toLowerCase.trim
+		val VersionRegex = ".*?v?\\s*(\\d+)(?:\\.\\d+)?$".r
+		s match {
+			case VersionRegex(n) => try {
+				n.toInt
+			} catch {
+				case _: Throwable => 1
+			}
+			case _ => 1
+		}
+	}
 
 	private def createRetirementAudit(request: Request): Future[Response] = {
 		val req = request.getRequest.asInstanceOf[java.util.Map[String, Object]]
@@ -1136,6 +1136,5 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				}
 		}
 	}
-
 
 }
