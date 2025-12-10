@@ -67,8 +67,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			case "createMLContent" => createMLContent(request)
 			case "reviewMLContent" => reviewMLContent(request)
 			case "updateReviewStatusMLContent" => updateReviewStatusMLContent(request)
-        case "scheduleRetirement" => scheduleRetirement(request)
-        case "isRetirementScheduled" => isRetirementScheduled(request)
+      case "scheduleRetirement" => scheduleRetirement(request)
+      case "isRetirementScheduled" => isRetirementScheduled(request)
 			case _ => ERROR(request.getOperation)
 		}
 	}
