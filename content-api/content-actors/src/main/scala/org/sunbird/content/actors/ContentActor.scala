@@ -69,7 +69,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			case "reviewMLContent" => reviewMLContent(request)
 			case "updateReviewStatusMLContent" => updateReviewStatusMLContent(request)
 			case "createVersionContent" => createNewVersionOfContent(request)
-      case _ => ERROR(request.getOperation)
+			case _ => ERROR(request.getOperation)
 				}
 		}
 
@@ -898,7 +898,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		if (StringUtils.isBlank(sourceCollectionId))
 			throw new ClientException("ERR_INVALID_REQUEST", "previousVersionCourseId is required")
 
-		//  READ OLD COURSE
 		val readReq = new Request()
 		readReq.setContext(new java.util.HashMap[String, AnyRef]() {
 			{
@@ -910,7 +909,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		})
 		readReq.put(ContentConstants.IDENTIFIER, sourceCollectionId)
 		readReq.put(ContentConstants.MODE, "read")
-
 		DataNode.read(readReq).flatMap { oldNode =>
 			val oldMeta = oldNode.getMetadata
 			val status = oldMeta.getOrDefault(ContentConstants.STATUS, "").asInstanceOf[String]
@@ -934,7 +932,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			// check contentVersionInfo list
 			val versionInfoObj = oldMeta.getOrDefault(ContentConstants.CONTENT_VERSION_INFO, new java.util.ArrayList[java.util.Map[String, AnyRef]]())
 			val versionList = new java.util.ArrayList[java.util.Map[String, AnyRef]]()
-
 			versionInfoObj match {
 				case list: java.util.List[_] => list.asScala.foreach(i => versionList.add(i.asInstanceOf[java.util.Map[String, AnyRef]]))
 				case map: java.util.Map[_, _] => versionList.add(map.asInstanceOf[java.util.Map[String, AnyRef]])
@@ -954,9 +951,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 
 			if (highestExisting >= nextVersionNum)
 				nextVersionNum = highestExisting + 1
-
 			val nextVersion = s"v$nextVersionNum"
-
 			val contentMap = new java.util.HashMap[String, AnyRef]()
 			contentMap.put(ContentConstants.NAME, name)
 			contentMap.put(ContentConstants.CREATED_BY, createdBy)
@@ -978,12 +973,9 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			if (StringUtils.isNotBlank(creatorLogo)) {
 				contentMap.put(ContentConstants.CREATOR_LOGO, creatorLogo)
 			}
-
-			// add version fields
 			contentMap.put(ContentConstants.PREVIOUS_VERSION_COURSE_ID, sourceCollectionId)
 			contentMap.put(ContentConstants.CONTENT_VERSION, nextVersion)
 
-			// CREATE NEW COURSE NODE
 			val createReq = new Request()
 			createReq.setOperation("createContent")
 			createReq.setRequest(contentMap)
@@ -1034,7 +1026,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		}
 	}
 
-  private def extractVersionNumber(v: String): Int = {
+	private def extractVersionNumber(v: String): Int = {
     if (v == null) return 1
     val s = v.toLowerCase.trim
     val VersionRegex = ".*?v?\\s*(\\d+)(?:\\.\\d+)?$".r
