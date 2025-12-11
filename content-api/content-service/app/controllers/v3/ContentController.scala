@@ -276,7 +276,7 @@ class ContentController @Inject()(@Named(ActorNames.CONTENT_ACTOR) contentActor:
       setRequestContext(contentRequest, version, objectType, schemaName)
       contentRequest.getContext.put(
         "X-Authenticated-Userid",
-        request.headers.get("X-Authenticated-Userid").getOrElse("")
+        request.headers.get("x-authenticated-userid").getOrElse("")
       )
       getResult(ApiId.RETIRE_SCHEDULER_V1, contentActor, contentRequest)
     }
