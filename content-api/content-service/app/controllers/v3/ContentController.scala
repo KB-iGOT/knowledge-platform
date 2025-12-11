@@ -277,7 +277,6 @@ class ContentController @Inject()(@Named(ActorNames.CONTENT_ACTOR) contentActor:
       val userIdFromHeader =
         request.headers.get("X-Authenticated-Userid")
           .orElse(request.headers.get("x-authenticated-userid"))
-          .orElse(request.headers.get("X-AUTHENTICATED-USERID"))
           .getOrElse("")
       contentRequest.getContext.put("X-Authenticated-Userid", userIdFromHeader)
       getResult(ApiId.RETIRE_SCHEDULER_V1, contentActor, contentRequest)
