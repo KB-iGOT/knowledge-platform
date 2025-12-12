@@ -207,7 +207,6 @@ object RetireManager {
         readReq.put("identifier", id)
         readReq.setObjectType("Content")
         readReq.put(ContentConstants.MODE, "read")
-        RedisCache.delete(hierarchyPrefix + request.get("rootId"))
         RedisCache.delete(id)
         DataNode.read(readReq).flatMap { node =>
           if (node == null)
