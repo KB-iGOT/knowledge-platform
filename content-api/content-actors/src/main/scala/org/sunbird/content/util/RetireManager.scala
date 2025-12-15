@@ -34,7 +34,7 @@ import java.time.{Instant, ZoneOffset}
 import java.time.format.{DateTimeFormatter, DateTimeParseException}
 import java.time.temporal.ChronoUnit
 import scala.collection.JavaConversions._
-import scala.collection.JavaConverters.asScalaBufferConverter
+import scala.collection.JavaConverters.{asScalaBufferConverter, collectionAsScalaIterableConverter}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
@@ -93,6 +93,7 @@ object RetireManager {
       for {
         _ <- validateNoParentCollection(request)
         _ <- validateNoCbPlanForContent(contentId)
+        _ <- validateMultilingualRetirement(contentId)
         _ <- insertRetirementRequest(contentId, reqMap)
         resp <- markContentPendingRetirement(request)
       } yield resp
@@ -144,7 +145,7 @@ object RetireManager {
       params.setStatus(ContentConstants.SUCCESS)
       params.setErrmsg(null)
       resp.put(ContentConstants.IDENTIFIER, contentId)
-      resp.put(ContentConstants.ISVALID, java.lang.Boolean.TRUE)
+      resp.put(ContentConstants.IS_VALID, java.lang.Boolean.TRUE)
       resp.put(ContentConstants.MESSAGES, null)
       resp
     }.recover {
@@ -156,7 +157,7 @@ object RetireManager {
         params.setErrmsg(clientException.getMessage)
 
         resp.put(ContentConstants.IDENTIFIER, contentId)
-        resp.put(ContentConstants.ISVALID, java.lang.Boolean.FALSE)
+        resp.put(ContentConstants.IS_VALID, java.lang.Boolean.FALSE)
         resp.put(ContentConstants.MESSAGES, clientException.getMessage)
         resp
 
@@ -578,5 +579,69 @@ object RetireManager {
     }
 
     private def getLearningGraphEvent(request: Request, id: String): Map[String, Any] = Map("ets" -> System.currentTimeMillis(), "channel" -> request.getContext.get(ContentConstants.CHANNEL), "mid" -> UUID.randomUUID.toString, "nodeType" -> "DATA_NODE", "userId" -> "Ekstep", "createdOn" -> DateUtils.format(new Date()), "objectType" -> "Content", "nodeUniqueId" -> id, "operationType" -> "DELETE", "graphId" -> request.getContext.get("graph_id"))
+
+    private def validateMultilingualRetirement(contentId: String)
+                                              (implicit ec: ExecutionContext,
+                                               oec: OntologyEngineContext): Future[Unit] = {
+      val readReq = new Request()
+      readReq.setContext(new java.util.HashMap[String, AnyRef]() {
+        {
+          put("graph_id", "domain")
+          put("version", ContentConstants.SCHEMA_VERSION)
+          put("objectType", ContentConstants.CONTENT_OBJECT_TYPE)
+          put("schemaName", ContentConstants.CONTENT_SCHEMA_NAME)
+        }
+      })
+      readReq.put(ContentConstants.IDENTIFIER, contentId)
+      readReq.put(ContentConstants.MODE, "read")
+
+      DataNode.read(readReq).map { node =>
+        val metadata = Option(node.getMetadata)
+          .getOrElse(throw new ClientException(
+            ContentConstants.ERR_INVALID_CONTENT,
+            "Content metadata is missing."
+          ))
+
+        val langMap = Option(metadata.get(ContentConstants.LANGUAGE_MAP_V1))
+          .map(_.asInstanceOf[java.util.Map[String, java.util.Map[String, AnyRef]]])
+          .getOrElse(new java.util.HashMap[String, java.util.Map[String, AnyRef]]())
+
+        val entries = langMap.values().asScala.toList
+        val count = entries.size
+        if (count == 0) {
+          ()
+        }
+        else if (count == 1) {
+          val only = entries.head
+          val isBase = Option(only.get(ContentConstants.IS_BASE_LANG)).exists(_.toString.toBoolean)
+          val status = Option(only.get(ContentConstants.STATUS)).map(_.toString).getOrElse("")
+
+          if (isBase) {
+            ()
+          }
+          else if (!status.equalsIgnoreCase(ContentConstants.RETIRED)) {
+            throw new ClientException(
+              ContentConstants.ERR_CHILD_NOT_RETIRED,
+              "Cannot retire this course because it belongs to a multilingual course and has active child language versions."
+            )
+          } else {
+            ()
+          }
+        }
+        else {
+          val anyActive = entries.exists(e =>
+            !Option(e.get(ContentConstants.STATUS)).exists(_.toString.equalsIgnoreCase(ContentConstants.RETIRED))
+          )
+          if (anyActive) {
+            throw new ClientException(
+              ContentConstants.ERR_ACTIVE_MULTILINGUAL_COURSE,
+              "Cannot retire any course that belongs to a multilingual course with active language versions."
+            )
+          }
+          ()
+        }
+      }
+    }
+
 
 }

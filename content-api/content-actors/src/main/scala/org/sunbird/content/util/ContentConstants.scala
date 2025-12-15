@@ -152,7 +152,11 @@ object ContentConstants {
     val SUNBIRD__KEYSPACE = "cbplan.lookup.keyspace"
     val CB_PLAN_LOOKUP_TABLE = "cbplan.lookup.table"
     val SUCCESS = "successful"
-    val ISVALID = "isValid"
+    val IS_VALID = "isValid"
     val MESSAGES = "messages"
     val FAILED = "Failed"
+    val ERR_CHILD_NOT_RETIRED = "ERR_CHILD_NOT_RETIRED"
+    val LANGUAGE_MAP_V1 = "languageMapV1"
+    val ERR_ACTIVE_MULTILINGUAL_COURSE = "ERR_ACTIVE_MULTILINGUAL_COURSE"
+    val IS_BASE_LANG = "isBaseLang"
 }
