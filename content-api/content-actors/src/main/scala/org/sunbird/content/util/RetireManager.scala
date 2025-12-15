@@ -602,33 +602,35 @@ object RetireManager {
             "Content metadata is missing."
           ))
 
-        val langMap = Option(metadata.get(ContentConstants.LANGUAGE_MAP_V1))
+        val langMapOpt = Option(metadata.get(ContentConstants.LANGUAGE_MAP_V1))
           .map(_.asInstanceOf[java.util.Map[String, java.util.Map[String, AnyRef]]])
-          .getOrElse(new java.util.HashMap[String, java.util.Map[String, AnyRef]]())
 
-        val entries = langMap.values().asScala.toList
-        val retiringEntryOpt = entries.find(e => Option(e.get("id")).map(_.toString) == Some(contentId))
-        retiringEntryOpt match {
-          case Some(retiringEntry) =>
-            val isBase = Option(retiringEntry.get(ContentConstants.IS_BASE_LANG)).exists(_.toString.toBoolean)
-            if (isBase && entries.size > 1) {
-              // Check if all non-base language versions are retired
-              val nonBaseEntries = entries.filterNot(_ == retiringEntry)
-              val allNonBaseRetired = nonBaseEntries.forall(e =>
-                Option(e.get(ContentConstants.STATUS)).exists(_.toString.equalsIgnoreCase(ContentConstants.RETIRED))
-              )
-              if (!allNonBaseRetired) {
-                throw new ClientException(
-                  ContentConstants.ERR_ACTIVE_MULTILINGUAL_COURSE,
-                  ContentConstants.ERR_ACTIVE_MULTILINGUAL_COURSE_MSG
+        if (langMapOpt.isDefined) {
+          val langMap = langMapOpt.get
+          val entries = langMap.values().asScala.toList
+          val retiringEntryOpt = entries.find(e => Option(e.get("id")).map(_.toString) == Some(contentId))
+          retiringEntryOpt match {
+            case Some(retiringEntry) =>
+              val isBase = Option(retiringEntry.get(ContentConstants.IS_BASE_LANG)).exists(_.toString.toBoolean)
+              if (isBase && entries.size > 1) {
+                // Check if all non-base language versions are retired
+                val nonBaseEntries = entries.filterNot(_ == retiringEntry)
+                val allNonBaseRetired = nonBaseEntries.forall(e =>
+                  Option(e.get(ContentConstants.STATUS)).exists(_.toString.equalsIgnoreCase(ContentConstants.RETIRED))
                 )
+                if (!allNonBaseRetired) {
+                  throw new ClientException(
+                    ContentConstants.ERR_ACTIVE_MULTILINGUAL_COURSE,
+                    ContentConstants.ERR_ACTIVE_MULTILINGUAL_COURSE_MSG
+                  )
+                }
+              } else if (!isBase) {
+                logger.info(s"Retiring non-base language content: $contentId")
               }
-            } else if (!isBase) {
-              logger.info(s"Retiring non-base language content: $contentId")
-            }
-          case None =>
-            logger.warn(s"Content $contentId not found in language map during multilingual validation, allowing retirement")
-            ()
+            case None =>
+              logger.warn(s"Content $contentId not found in language map during multilingual validation, allowing retirement")
+              ()
+          }
         }
       }
     }
