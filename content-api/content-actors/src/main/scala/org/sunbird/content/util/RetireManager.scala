@@ -23,6 +23,7 @@ import org.sunbird.graph.nodes.DataNode
 import org.sunbird.graph.utils.ScalaJsonUtils
 import org.sunbird.kafka.client.KafkaClient
 import org.sunbird.managers.HierarchyManager
+import org.sunbird.managers.HierarchyManager.hierarchyPrefix
 import org.sunbird.parseq.Task
 import org.sunbird.telemetry.logger.TelemetryManager
 import org.sunbird.util.RequestUtil
@@ -97,49 +98,86 @@ object RetireManager {
       } yield resp
     }
 
-    def isRetirementScheduled(request: Request)
-                             (implicit ec: ExecutionContext,
-                              oec: OntologyEngineContext): Future[Response] = {
-      logger.info("Inside isRetirementScheduled method of RetireManager::")
-      val outerMap = request.getRequest
-      val reqMap: java.util.Map[String, AnyRef] =
-        Option(outerMap.get("request"))
-          .map(_.asInstanceOf[java.util.Map[String, AnyRef]])
-          .getOrElse {
-            val m = new java.util.HashMap[String, AnyRef]()
-            val id =
-              Option(request.getContext.get(ContentConstants.IDENTIFIER))
-                .orElse(Option(outerMap.get(ContentConstants.IDENTIFIER)))
-                .map(_.toString.trim)
-                .filter(StringUtils.isNotBlank)
-                .getOrElse(throw new ClientException(
-                  ContentConstants.ERR_INVALID_CONTENT_ID,
-                  ContentConstants.ERR_CONTENT_ID_MISSING
-                ))
+  def isRetirementScheduled(request: Request)
+                           (implicit ec: ExecutionContext,
+                            oec: OntologyEngineContext): Future[Response] = {
+    logger.info("Inside isRetirementScheduled method of RetireManager::")
 
-            m.put(ContentConstants.CONTENT_ID, id)
-            outerMap.put("request", m)
-            m
-          }
-      val contentId = Option(reqMap.get(ContentConstants.CONTENT_ID))
-        .map(_.toString.trim)
-        .filter(StringUtils.isNotBlank)
-        .getOrElse(throw new ClientException(
-          ContentConstants.ERR_INVALID_CONTENT_ID,
-          ContentConstants.ERR_CONTENT_ID_MISSING
-        ))
-      for {
-        _    <- validateNoParentCollection(request)
-        _    <- validateNoCbPlanForContent(contentId)
-      } yield {
+    val outerMap = request.getRequest
+    val reqMap: java.util.Map[String, AnyRef] =
+      Option(outerMap.get(ContentConstants.RQST))
+        .map(_.asInstanceOf[java.util.Map[String, AnyRef]])
+        .getOrElse {
+          val contentMap = new java.util.HashMap[String, AnyRef]()
+          val id =
+            Option(request.getContext.get(ContentConstants.IDENTIFIER))
+              .orElse(Option(outerMap.get(ContentConstants.IDENTIFIER)))
+              .map(_.toString.trim)
+              .filter(StringUtils.isNotBlank)
+              .getOrElse(throw new ClientException(
+                ContentConstants.ERR_INVALID_CONTENT_ID,
+                ContentConstants.ERR_CONTENT_ID_MISSING
+              ))
+
+          contentMap.put(ContentConstants.CONTENT_ID, id)
+          outerMap.put(ContentConstants.RQST, contentMap)
+          contentMap
+        }
+
+    val contentId = Option(reqMap.get(ContentConstants.CONTENT_ID))
+      .map(_.toString.trim)
+      .filter(StringUtils.isNotBlank)
+      .getOrElse(throw new ClientException(
+        ContentConstants.ERR_INVALID_CONTENT_ID,
+        ContentConstants.ERR_CONTENT_ID_MISSING
+      ))
+
+    // Chain validations as before
+    val validationsF: Future[Unit] = for {
+      _ <- validateNoParentCollection(request)
+      _ <- validateNoCbPlanForContent(contentId)
+    } yield ()
+    validationsF.map { _ =>
+      val resp = ResponseHandler.OK()
+      val params = resp.getParams
+      params.setErr(null)
+      params.setStatus(ContentConstants.SUCCESS)
+      params.setErrmsg(null)
+      resp.put(ContentConstants.IDENTIFIER, contentId)
+      resp.put(ContentConstants.ISVALID, java.lang.Boolean.TRUE)
+      resp.put(ContentConstants.MESSAGES, null)
+      resp
+    }.recover {
+      case clientException: ClientException =>
         val resp = ResponseHandler.OK()
-        resp.put("identifier", contentId)
+        val params = resp.getParams
+        params.setErr(clientException.getErrCode)
+        params.setStatus(ContentConstants.FAILED)
+        params.setErrmsg(clientException.getMessage)
+
+        resp.put(ContentConstants.IDENTIFIER, contentId)
+        resp.put(ContentConstants.ISVALID, java.lang.Boolean.FALSE)
+        resp.put(ContentConstants.MESSAGES, clientException.getMessage)
         resp
-      }
+
+      case ex: Exception =>
+        val resp = ResponseHandler.OK()
+        val params = resp.getParams
+        params.setErr(ErrorCodes.ERR_SYSTEM_EXCEPTION.name)
+        params.setStatus("failed")
+        params.setErrmsg(ex.getMessage)
+
+        resp.put("identifier", contentId)
+        resp.put("isValid", java.lang.Boolean.FALSE)
+        resp.put("messages", ex.getMessage)
+        resp
     }
+  }
 
 
-    def markContentPendingRetirement(request: Request)
+
+
+  def markContentPendingRetirement(request: Request)
                                       (implicit ec: ExecutionContext,
                                        oec: OntologyEngineContext): Future[Response] = {
 
@@ -169,7 +207,7 @@ object RetireManager {
         readReq.put("identifier", id)
         readReq.setObjectType("Content")
         readReq.put(ContentConstants.MODE, "read")
-
+        RedisCache.delete(id)
         DataNode.read(readReq).flatMap { node =>
           if (node == null)
             throw new ClientException(
