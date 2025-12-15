@@ -148,7 +148,7 @@ object ContentConstants {
     val MIN_RETIREMENT_GAP_DAYS = "retirement.min.gap.days"
     val MAX_RETIREMENT_GAP_DAYS = "retirement.max.gap.days"
     val CONTENT_RETIREMENT_STS = "contentRetiredStatus"
-    val PENDING_RETIREMENT = "PendingRetirement"
+    val PENDING_APPROVAL = "PendingApproval"
     val SUNBIRD__KEYSPACE = "cbplan.lookup.keyspace"
     val CB_PLAN_LOOKUP_TABLE = "cbplan.lookup.table"
     val SUCCESS = "successful"
