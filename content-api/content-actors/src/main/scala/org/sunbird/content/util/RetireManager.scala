@@ -222,8 +222,6 @@ object RetireManager {
               "Content metadata error, status is blank for identifier: " + node.getIdentifier
             )
           request.getRequest.put(ContentConstants.CONTENT_RETIREMENT_STS, ContentConstants.PENDING_APPROVAL)
-          request.getRequest.put(ContentConstants.LAST_ENROLLMENT_DATE, request.getRequest.get(ContentConstants.PENDING_APPROVAL))
-          request.getRequest.put(ContentConstants.RETIREMENT_DATE, request.getRequest.get(ContentConstants.PENDING_APPROVAL))
           request.getRequest.put("versionKey", metadata.get("versionKey"))
           RequestUtil.restrictProperties(request)
           request.getContext.put(ContentConstants.IDENTIFIER, id)
