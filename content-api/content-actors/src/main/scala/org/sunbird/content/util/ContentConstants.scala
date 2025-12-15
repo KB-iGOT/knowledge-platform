@@ -155,8 +155,8 @@ object ContentConstants {
     val IS_VALID = "isValid"
     val MESSAGES = "messages"
     val FAILED = "Failed"
-    val ERR_CHILD_NOT_RETIRED = "ERR_CHILD_NOT_RETIRED"
     val LANGUAGE_MAP_V1 = "languageMapV1"
     val ERR_ACTIVE_MULTILINGUAL_COURSE = "ERR_ACTIVE_MULTILINGUAL_COURSE"
+    val ERR_ACTIVE_MULTILINGUAL_COURSE_MSG = "Cannot retire any course that belongs to a multilingual course with active language versions."
     val IS_BASE_LANG = "isBaseLang"
 }

@@ -607,38 +607,28 @@ object RetireManager {
           .getOrElse(new java.util.HashMap[String, java.util.Map[String, AnyRef]]())
 
         val entries = langMap.values().asScala.toList
-        val count = entries.size
-        if (count == 0) {
-          ()
-        }
-        else if (count == 1) {
-          val only = entries.head
-          val isBase = Option(only.get(ContentConstants.IS_BASE_LANG)).exists(_.toString.toBoolean)
-          val status = Option(only.get(ContentConstants.STATUS)).map(_.toString).getOrElse("")
-
-          if (isBase) {
+        val retiringEntryOpt = entries.find(e => Option(e.get("id")).map(_.toString) == Some(contentId))
+        retiringEntryOpt match {
+          case Some(retiringEntry) =>
+            val isBase = Option(retiringEntry.get(ContentConstants.IS_BASE_LANG)).exists(_.toString.toBoolean)
+            if (isBase && entries.size > 1) {
+              // Check if all non-base language versions are retired
+              val nonBaseEntries = entries.filterNot(_ == retiringEntry)
+              val allNonBaseRetired = nonBaseEntries.forall(e =>
+                Option(e.get(ContentConstants.STATUS)).exists(_.toString.equalsIgnoreCase(ContentConstants.RETIRED))
+              )
+              if (!allNonBaseRetired) {
+                throw new ClientException(
+                  ContentConstants.ERR_ACTIVE_MULTILINGUAL_COURSE,
+                  ContentConstants.ERR_ACTIVE_MULTILINGUAL_COURSE_MSG
+                )
+              }
+            } else if (!isBase) {
+              logger.info(s"Retiring non-base language content: $contentId")
+            }
+          case None =>
+            logger.warn(s"Content $contentId not found in language map during multilingual validation, allowing retirement")
             ()
-          }
-          else if (!status.equalsIgnoreCase(ContentConstants.RETIRED)) {
-            throw new ClientException(
-              ContentConstants.ERR_CHILD_NOT_RETIRED,
-              "Cannot retire this course because it belongs to a multilingual course and has active child language versions."
-            )
-          } else {
-            ()
-          }
-        }
-        else {
-          val anyActive = entries.exists(e =>
-            !Option(e.get(ContentConstants.STATUS)).exists(_.toString.equalsIgnoreCase(ContentConstants.RETIRED))
-          )
-          if (anyActive) {
-            throw new ClientException(
-              ContentConstants.ERR_ACTIVE_MULTILINGUAL_COURSE,
-              "Cannot retire any course that belongs to a multilingual course with active language versions."
-            )
-          }
-          ()
         }
       }
     }
