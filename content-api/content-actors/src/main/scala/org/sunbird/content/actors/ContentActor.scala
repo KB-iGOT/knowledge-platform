@@ -1323,11 +1323,25 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
     update.where
       .and(QueryBuilder.eq(ContentConstants.RETITEMENT_PRIMARY_KEY, contentId))
       .and(QueryBuilder.eq(ContentConstants.RQST_ID, requestId))
+		val (approvedFlag, statusValue) =
+			action match {
+				case ContentConstants.APPROVE =>
+					(java.lang.Boolean.TRUE, ContentConstants.APPROVED_KEY)
+
+				case ContentConstants.REJECT =>
+					(java.lang.Boolean.FALSE, ContentConstants.REJECTED)
+
+				case _ =>
+					throw new ClientException(
+						ContentConstants.ERR_INVALID_REQUEST,
+						s"Invalid action for retirement decision: $action"
+					)
+			}
     update
       .`with`(QueryBuilder.set(ContentConstants.APPROVED, java.lang.Boolean.TRUE))
       .and(QueryBuilder.set(ContentConstants.APPROVED_BY_RQST, approvedBy))
       .and(QueryBuilder.set(ContentConstants.APPROVED_AT, new java.util.Date()))
-      .and(QueryBuilder.set(ContentConstants.STATUS, ContentConstants.APPROVED_KEY))
+      .and(QueryBuilder.set(ContentConstants.STATUS, statusValue))
       .and(QueryBuilder.set(ContentConstants.APPROVED_COMMENT, action))
 
     CassandraConnector.getSession
