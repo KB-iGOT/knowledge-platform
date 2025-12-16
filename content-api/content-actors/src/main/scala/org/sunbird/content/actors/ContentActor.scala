@@ -1432,19 +1432,19 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
             )
           }
 					if (lastEnrollmentDate != null && retirementDate != null) {
-						val lastEnrollLd = toLocalDate(lastEnrollmentDate)
-						val oldRetireLd  = toLocalDate(retirementDate)
-						val diffDays =
-							ChronoUnit.DAYS.between(lastEnrollLd, oldRetireLd)
+						val lastEnrollmentdateFetched = toLocalDate(lastEnrollmentDate)
+						val retirementDateFetched  = toLocalDate(retirementDate)
+						val retirementGapInDays =
+							ChronoUnit.DAYS.between(lastEnrollmentdateFetched, retirementDateFetched)
 						val newRetirementDate =
-							LocalDate.now().plusDays(diffDays)
+							LocalDate.now().plusDays(retirementGapInDays)
 						request.getRequest.put(
 							ContentConstants.RETIREMENT_DATE,
 							toOffsetTimestamp(newRetirementDate)
 						)
 						logger.info(
-							s"[RETIRE-DECIDE][RETIREMENT-DATE-RECALC] " + s"lastEnrollment=$lastEnrollLd, " +
-								s"oldRetirement=$oldRetireLd, " + s"diffDays=$diffDays, " + s"newRetirement=$newRetirementDate"
+							s"[RETIRE-DECIDE][RETIREMENT-DATE-RECALC] " + s"lastEnrollment=$lastEnrollmentdateFetched, " +
+								s"oldRetirement=$retirementDateFetched, " + s"diffDays=$retirementGapInDays, " + s"newRetirement=$newRetirementDate"
 						)
 					}
 				case ContentConstants.REJECT =>
@@ -1521,68 +1521,68 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				.getStringList(ContentConstants.RETIREMENT_READ_COLUMNS)
 				.asScala
 				.toList
-		val propsMapping: scala.collection.immutable.Map[String, String] =
+		val propertiesMapping: scala.collection.immutable.Map[String, String] =
 			scala.collection.immutable.Map.empty
 		retirementRequestStore
-			.read(contentIds, externalProperties, propsMapping)
+			.read(contentIds, externalProperties, propertiesMapping)
 			.map { resp: Response =>
 				logger.info(
 					s"[RETIREMENT-STATUS][SUCCESS] responseCode=${resp.getResponseCode}"
 				)
-				val dbResult =
+				val fetchedData =
 					resp.getResult.asInstanceOf[java.util.Map[String, AnyRef]]
-				val contentList = buildRetirementStatusResponse(dbResult)
+				val contentList = buildRetirementStatusResponse(fetchedData)
 				ResponseHandler.OK
 					.put("content", contentList)
 			}
 	}
 
-	private def buildRetirementStatusResponse(dbResult: java.util.Map[String, AnyRef]): java.util.List[java.util.Map[String, AnyRef]] = {
+	private def buildRetirementStatusResponse(fetchedData: java.util.Map[String, AnyRef]): java.util.List[java.util.Map[String, AnyRef]] = {
 		import scala.collection.JavaConverters._
-		dbResult.asScala.map {
+		fetchedData.asScala.map {
 			case (contentId: String, rowAny: AnyRef) =>
-				val row =
+				val retirementData =
 					rowAny.asInstanceOf[java.util.Map[String, AnyRef]]
-				val out: java.util.Map[String, AnyRef] =
+				val updatedData: java.util.Map[String, AnyRef] =
 					new java.util.HashMap[String, AnyRef]()
 				// always present
-				out.put(ContentConstants.CONTENT_ID, contentId)
-				Option(row.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST))
+				updatedData.put(ContentConstants.CONTENT_ID, contentId)
+				Option(retirementData.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST))
 					.foreach { v =>
-						out.put(
+						updatedData.put(
 							ContentConstants.LAST_ENROLLMENT_DATE,
 							toIsoDate(v)
 						)
 					}
-				Option(row.get(ContentConstants.RETIREMENT_DATE_RQST))
+				Option(retirementData.get(ContentConstants.RETIREMENT_DATE_RQST))
 					.foreach { v =>
-						out.put(
+						updatedData.put(
 							ContentConstants.RETIREMENT_DATE,
 							toIsoDate(v)
 						)
 					}
-				Option(row.get(ContentConstants.STATUS))
-					.foreach { v =>
-						out.put(
+				Option(retirementData.get(ContentConstants.STATUS))
+					.foreach { result =>
+						updatedData.put(
 							ContentConstants.STATUS,
-							v.toString
+							result.toString
 						)
 					}
-				Option(row.get(ContentConstants.RSN_FOR_RETIREMENT))
-					.foreach { v =>
-						out.put(
+				Option(retirementData.get(ContentConstants.RSN_FOR_RETIREMENT))
+					.foreach { result =>
+						updatedData.put(
 							ContentConstants.REASON,
-							v
+							result
 						)
 					}
-				Option(row.get(ContentConstants.USER_ID_RAISED_FIELD))
-					.foreach { v =>
-						out.put(
+				Option(retirementData.get(ContentConstants.USER_ID_RAISED_FIELD))
+					.foreach { result =>
+						updatedData.put(
 							ContentConstants.USER_ID_RAISED,
-							v
+							result
 						)
 					}
-				out
+				updatedData
 		}.toList.asJava
 	}
 
@@ -1594,14 +1594,14 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 
 	private def toIsoDate(value: AnyRef): String = {
 		value match {
-			case d: com.datastax.driver.core.LocalDate =>
+			case date: com.datastax.driver.core.LocalDate =>
 				JLocalDate
-					.of(d.getYear, d.getMonth, d.getDay)
+					.of(date.getYear, date.getMonth, date.getDay)
 					.atStartOfDay()
 					.atZone(ZoneOffset.UTC)
 					.format(ISO_FORMATTER)
-			case d: java.util.Date =>
-				d.toInstant
+			case date: java.util.Date =>
+				date.toInstant
 					.atZone(ZoneOffset.UTC)
 					.format(ISO_FORMATTER)
 			case _ =>
@@ -1616,10 +1616,10 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 
 	private def toLocalDate(value: AnyRef): LocalDate = {
 		value match {
-			case d: com.datastax.driver.core.LocalDate =>
-				LocalDate.of(d.getYear, d.getMonth, d.getDay)
-			case s: String =>
-				LocalDate.parse(s)
+			case date: com.datastax.driver.core.LocalDate =>
+				LocalDate.of(date.getYear, date.getMonth, date.getDay)
+			case dateString: String =>
+				LocalDate.parse(dateString)
 			case _ =>
 				throw new IllegalArgumentException(s"Unsupported date type: $value")
 		}
