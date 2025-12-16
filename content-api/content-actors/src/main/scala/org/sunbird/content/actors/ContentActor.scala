@@ -1427,14 +1427,12 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
           "ERR_METADATA_ISSUE",
           s"Content metadata error, status is blank for identifier: ${node.getIdentifier}"
         )
-
       action match {
         case ContentConstants.APPROVE =>
           request.getRequest.put(
             ContentConstants.CONTENT_RETIREMENT_STS,
             ContentConstants.PENDING_RETIREMENT
           )
-
           if (lastEnrollmentDate != null) {
             request.getRequest.put(
               ContentConstants.LAST_ENROLLMENT_DATE,
@@ -1453,11 +1451,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 							toOffsetTimestamp(newRetirementDate)
 						)
 						logger.info(
-							s"[RETIRE-DECIDE][RETIREMENT-DATE-RECALC] " +
-								s"lastEnrollment=$lastEnrollLd, " +
-								s"oldRetirement=$oldRetireLd, " +
-								s"diffDays=$diffDays, " +
-								s"newRetirement=$newRetirementDate"
+							s"[RETIRE-DECIDE][RETIREMENT-DATE-RECALC] " + s"lastEnrollment=$lastEnrollLd, " +
+								s"oldRetirement=$oldRetireLd, " + s"diffDays=$diffDays, " + s"newRetirement=$newRetirementDate"
 						)
 					}
 				case ContentConstants.REJECT =>
