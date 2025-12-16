@@ -1323,10 +1323,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			action match {
 				case ContentConstants.APPROVE =>
 					(java.lang.Boolean.TRUE, ContentConstants.APPROVED_KEY)
-
 				case ContentConstants.REJECT =>
 					(java.lang.Boolean.FALSE, ContentConstants.REJECTED)
-
 				case _ =>
 					throw new ClientException(
 						ContentConstants.ERR_INVALID_REQUEST,
@@ -1515,7 +1513,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						"contentId is missing"
 					)
 				)
-
 		logger.info(
 			s"[RETIREMENT-STATUS][REQUEST] contentIds=${contentIds.mkString(",")}"
 		)
@@ -1534,9 +1531,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				)
 				val dbResult =
 					resp.getResult.asInstanceOf[java.util.Map[String, AnyRef]]
-
 				val contentList = buildRetirementStatusResponse(dbResult)
-
 				ResponseHandler.OK
 					.put("content", contentList)
 			}
@@ -1587,7 +1582,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 							v
 						)
 					}
-
 				out
 		}.toList.asJava
 	}
@@ -1600,19 +1594,16 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 
 	private def toIsoDate(value: AnyRef): String = {
 		value match {
-
 			case d: com.datastax.driver.core.LocalDate =>
 				JLocalDate
 					.of(d.getYear, d.getMonth, d.getDay)
 					.atStartOfDay()
 					.atZone(ZoneOffset.UTC)
 					.format(ISO_FORMATTER)
-
 			case d: java.util.Date =>
 				d.toInstant
 					.atZone(ZoneOffset.UTC)
 					.format(ISO_FORMATTER)
-
 			case _ =>
 				null
 		}
