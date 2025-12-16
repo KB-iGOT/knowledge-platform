@@ -39,12 +39,8 @@ import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import com.google.common.util.concurrent.{FutureCallback, Futures, ListenableFuture, MoreExecutors}
-import org.sunbird.common.dto.{Response, ResponseHandler}
-import org.sunbird.common.exception.{ErrorCodes, ResponseCode, ServerException}
 import org.sunbird.cassandra.{CassandraConnector, CassandraStore}
-
 import java.time.temporal.ChronoUnit
-
 
 class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
@@ -1418,10 +1414,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
           ContentConstants.ERR_INVALID_CONTENT_ID,
           s"Content is not found for identifier: $id"
         )
-
       val metadata = node.getMetadata
       val status = Option(metadata.get("status")).map(_.toString).getOrElse("")
-
       if (StringUtils.isBlank(status))
         throw new ClientException(
           "ERR_METADATA_ISSUE",
