@@ -1441,23 +1441,17 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
               toOffsetTimestamp(lastEnrollmentDate)
             )
           }
-
 					if (lastEnrollmentDate != null && retirementDate != null) {
-
 						val lastEnrollLd = toLocalDate(lastEnrollmentDate)
 						val oldRetireLd  = toLocalDate(retirementDate)
-
 						val diffDays =
 							ChronoUnit.DAYS.between(lastEnrollLd, oldRetireLd)
-
 						val newRetirementDate =
 							LocalDate.now().plusDays(diffDays)
-
 						request.getRequest.put(
 							ContentConstants.RETIREMENT_DATE,
 							toOffsetTimestamp(newRetirementDate)
 						)
-
 						logger.info(
 							s"[RETIRE-DECIDE][RETIREMENT-DATE-RECALC] " +
 								s"lastEnrollment=$lastEnrollLd, " +
@@ -1466,17 +1460,21 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 								s"newRetirement=$newRetirementDate"
 						)
 					}
-
 				case ContentConstants.REJECT =>
           request.getRequest.put(
             ContentConstants.CONTENT_RETIREMENT_STS,
             ContentConstants.REJECTED
           )
       }
+			request.setContext(new java.util.HashMap[String, AnyRef]() {{
+				put("graph_id", "domain")
+				put("version", "1.0")
+				put("objectType", "Collection")
+				put("schemaName", "collection")
+			}})
       request.getRequest.put("versionKey", metadata.get("versionKey"))
       RequestUtil.restrictProperties(request)
       request.getContext.put(ContentConstants.IDENTIFIER, id)
-
       systemUpdate(request).map { updatedResp =>
         logger.info(
           s"[RETIRE-DECIDE][CONTENT-UPDATE] action=$action, contentId=$id"
@@ -1508,10 +1506,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
     }
   }
 
-	def getRetirementStatus(
-													 request: Request
-												 )(implicit ec: ExecutionContext): Future[Response] = {
-
+	def getRetirementStatus(request: Request)(implicit ec: ExecutionContext): Future[Response] = {
 		logger.info("[RETIREMENT-STATUS] Inside getRetirementStatus")
 		import scala.collection.JavaConverters._
 		val reqMap: java.util.Map[String, AnyRef] =
@@ -1558,22 +1553,16 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			}
 	}
 
-	private def buildRetirementStatusResponse(
-																						 dbResult: java.util.Map[String, AnyRef]
-																					 ): java.util.List[java.util.Map[String, AnyRef]] = {
-
+	private def buildRetirementStatusResponse(dbResult: java.util.Map[String, AnyRef]): java.util.List[java.util.Map[String, AnyRef]] = {
 		import scala.collection.JavaConverters._
-
 		dbResult.asScala.map {
 			case (contentId: String, rowAny: AnyRef) =>
-
 				val row =
 					rowAny.asInstanceOf[java.util.Map[String, AnyRef]]
 				val out: java.util.Map[String, AnyRef] =
 					new java.util.HashMap[String, AnyRef]()
 				// always present
 				out.put(ContentConstants.CONTENT_ID, contentId)
-
 				Option(row.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST))
 					.foreach { v =>
 						out.put(
@@ -1641,8 +1630,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 	}
 
 	import java.time._
-	import java.time.temporal.ChronoUnit
-	import java.time.format.DateTimeFormatter
 
 	private val OFFSET_FORMATTER =
 		DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
@@ -1664,7 +1651,5 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			.atZone(ZoneId.systemDefault())
 			.format(OFFSET_FORMATTER)
 	}
-
-
 
 }
