@@ -1020,7 +1020,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 						response
 					}
 			}
-
 		}
 	}
 
@@ -1229,7 +1228,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 		}
 	}
 
-	private def extractUserId(req: Request): String = {
+  private def extractUserId(req: Request): String = {
     val fromContext = Option(req.getContext.get("X-Authenticated-Userid"))
       .map(_.toString)
       .filter(StringUtils.isNotBlank)
