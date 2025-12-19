@@ -1139,9 +1139,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
     RetireManager.isRetirementScheduled(request)
   }
 
-	def decideRetirementRequest(
-															 request: Request
-														 )(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Response] = {
+	def decideRetirementRequest(request: Request)(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Response] = {
 		logger.info("Inside decideRetirementRequest method of RetireManager")
 		validateDecideRetirementRequest(request)
 		val outerMap = request.getRequest
@@ -1683,13 +1681,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			}
 	}
 
-	private def buildAuditRowFromDecisionResult(
-																							 contentId: String,
-																							 result: java.util.Map[String, AnyRef],
-																							 action: String,
-																							 approvedBy: String
-																						 ): java.util.Map[String, AnyRef] = {
-
+	private def buildAuditRowFromDecisionResult(contentId: String, result: java.util.Map[String, AnyRef], action: String, approvedBy: String): java.util.Map[String, AnyRef] = {
 		val nowTs = new java.sql.Timestamp(System.currentTimeMillis())
 		val auditRow = new java.util.HashMap[String, AnyRef]()
 
