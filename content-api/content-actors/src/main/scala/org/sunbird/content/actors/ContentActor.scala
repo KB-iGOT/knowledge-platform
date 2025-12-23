@@ -1442,32 +1442,24 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
   }
 	
 	import scala.util.Try
-
 	private val OUTPUT_FORMATTER =
 		DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
-
 	private def toOffsetTimestamp(value: AnyRef): String = {
 		val zone = ZoneId.systemDefault()
-
 		value match {
-
 			case d: java.util.Date =>
 				ZonedDateTime
 					.ofInstant(d.toInstant, zone)
 					.format(OUTPUT_FORMATTER)
-
 			case d: LocalDate =>
 				d.atStartOfDay(zone)
 					.format(OUTPUT_FORMATTER)
-
 			case s: String if s.nonEmpty =>
-				// ✅ FIRST try yyyy-MM-dd (your case)
 				Try {
-					LocalDate.parse(s)   // 👈 IMPORTANT CHANGE
+					LocalDate.parse(s)
 						.atStartOfDay(zone)
 						.format(OUTPUT_FORMATTER)
 				}
-					// ✅ THEN try full ISO timestamp
 					.orElse {
 						Try {
 							ZonedDateTime
@@ -1476,7 +1468,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 								.format(OUTPUT_FORMATTER)
 						}
 					}
-					// ❌ DO NOT silently default to now()
 					.getOrElse {
 						throw new IllegalArgumentException(
 							s"Unsupported date format: $s"
