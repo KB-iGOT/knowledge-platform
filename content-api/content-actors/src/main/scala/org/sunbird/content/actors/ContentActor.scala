@@ -1396,7 +1396,7 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
           if (lastEnrollmentDate != null) {
             request.getRequest.put(
               ContentConstants.LAST_ENROLLMENT_DATE,
-              toOffsetTimestamp(lastEnrollmentDate)
+              toOffsetTimestamp(toLocalDate(lastEnrollmentDate))
             )
           }
 					if (lastEnrollmentDate != null && retirementDate != null) {
@@ -1440,47 +1440,56 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
       }
     }
   }
+	
+	import scala.util.Try
+
 	private val OUTPUT_FORMATTER =
 		DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
 
-	private val DATE_ONLY_FORMATTER =
-		DateTimeFormatter.ofPattern("yyyy-MM-dd")
-
-	import scala.util.Try
 	private def toOffsetTimestamp(value: AnyRef): String = {
 		val zone = ZoneId.systemDefault()
+
 		value match {
+
 			case d: java.util.Date =>
 				ZonedDateTime
 					.ofInstant(d.toInstant, zone)
 					.format(OUTPUT_FORMATTER)
+
 			case d: LocalDate =>
 				d.atStartOfDay(zone)
 					.format(OUTPUT_FORMATTER)
+
 			case s: String if s.nonEmpty =>
+				// ✅ FIRST try yyyy-MM-dd (your case)
 				Try {
-					LocalDate
-						.parse(s, DATE_ONLY_FORMATTER)
+					LocalDate.parse(s)   // 👈 IMPORTANT CHANGE
 						.atStartOfDay(zone)
 						.format(OUTPUT_FORMATTER)
-				}.orElse {
-					Try {
-						ZonedDateTime
-							.parse(s)
-							.format(OUTPUT_FORMATTER)
+				}
+					// ✅ THEN try full ISO timestamp
+					.orElse {
+						Try {
+							ZonedDateTime
+								.parse(s)
+								.withZoneSameInstant(zone)
+								.format(OUTPUT_FORMATTER)
+						}
+					}
+					// ❌ DO NOT silently default to now()
+					.getOrElse {
+						throw new IllegalArgumentException(
+							s"Unsupported date format: $s"
+						)
 					}
 
-				}.getOrElse {
-					ZonedDateTime
-						.now(zone)
-						.format(OUTPUT_FORMATTER)
-				}
 			case _ =>
-				ZonedDateTime
-					.now(zone)
-					.format(OUTPUT_FORMATTER)
+				throw new IllegalArgumentException(
+					s"Unsupported date value: $value"
+				)
 		}
 	}
+
 
 
 	def getRetirementStatus(request: Request)(implicit ec: ExecutionContext): Future[Response] = {
