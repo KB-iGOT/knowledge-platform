@@ -1447,26 +1447,48 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
       }
     }
   }
+	private val OUTPUT_FORMATTER =
+		DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
 
-  private def toOffsetTimestamp(value: AnyRef): String = {
-    val formatter =
-      DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
-    value match {
-      case date: java.util.Date =>
-        ZonedDateTime
-          .ofInstant(date.toInstant, ZoneId.systemDefault())
-          .format(formatter)
-      case date: java.time.LocalDate =>
-        date.atStartOfDay(ZoneId.systemDefault())
-          .format(formatter)
-      case str: String =>
-        str
-      case _ =>
-        ZonedDateTime
-          .now(ZoneId.systemDefault())
-          .format(formatter)
-    }
-  }
+	private val DATE_ONLY_FORMATTER =
+		DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
+	import scala.util.Try
+	private def toOffsetTimestamp(value: AnyRef): String = {
+		val zone = ZoneId.systemDefault()
+		value match {
+			case d: java.util.Date =>
+				ZonedDateTime
+					.ofInstant(d.toInstant, zone)
+					.format(OUTPUT_FORMATTER)
+			case d: LocalDate =>
+				d.atStartOfDay(zone)
+					.format(OUTPUT_FORMATTER)
+			case s: String if s.nonEmpty =>
+				Try {
+					LocalDate
+						.parse(s, DATE_ONLY_FORMATTER)
+						.atStartOfDay(zone)
+						.format(OUTPUT_FORMATTER)
+				}.orElse {
+					Try {
+						ZonedDateTime
+							.parse(s)
+							.format(OUTPUT_FORMATTER)
+					}
+
+				}.getOrElse {
+					ZonedDateTime
+						.now(zone)
+						.format(OUTPUT_FORMATTER)
+				}
+			case _ =>
+				ZonedDateTime
+					.now(zone)
+					.format(OUTPUT_FORMATTER)
+		}
+	}
+
 
 	def getRetirementStatus(request: Request)(implicit ec: ExecutionContext): Future[Response] = {
 		logger.info("[RETIREMENT-STATUS] Inside getRetirementStatus")
