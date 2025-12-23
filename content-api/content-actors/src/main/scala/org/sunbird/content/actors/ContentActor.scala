@@ -1601,8 +1601,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 	}
 
 	private def copyAccessSettingsForNewCourse(oldCourseId: String, newCourseId: String)(implicit ec: ExecutionContext): Future[Unit] = {
-		val keySpace = Platform.config.getString(ContentConstants.SUNBIRD_COURSE_KEYSPACE)
-		val table = Platform.config.getString(ContentConstants.ACCESS_SETTING_RULES_V2_TABLE)
+		val keySpace = Platform.getString(ContentConstants.SUNBIRD_COURSE_KEYSPACE, "sunbird_courses")
+		val table    = Platform.getString(ContentConstants.ACCESS_SETTING_RULES_V2_TABLE, "access_setting_rules_v2")
 		val accessRuleStore = new ExternalStore(
 			keySpace = keySpace,
 			table = table,
