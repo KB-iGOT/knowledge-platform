@@ -49,7 +49,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       retirementRequestTable,
       util.Arrays.asList(ContentConstants.RETITEMENT_PRIMARY_KEY)
     )
-  private lazy val copyFields: Set[String] =
+  private val copyFields: Set[String] =
     Platform.config.getStringList(ContentConstants.CONTENT_COPY_FIELDS).asScala.toSet
 
 
