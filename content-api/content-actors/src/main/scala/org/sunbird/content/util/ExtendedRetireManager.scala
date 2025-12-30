@@ -9,6 +9,7 @@ import org.apache.commons.lang.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 import org.sunbird.cache.impl.RedisCache
 import org.sunbird.cassandra.CassandraConnector
+import org.sunbird.common.Platform
 import org.sunbird.common.{JsonUtils, Platform}
 import org.sunbird.common.dto.{Request, Response, ResponseHandler}
 import org.sunbird.common.exception.{ClientException, ErrorCodes, ResponseCode, ServerException}
