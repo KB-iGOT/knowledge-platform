@@ -641,7 +641,7 @@ object ExtendedRetireManager {
       ).asJava
     ).asJava
     val body = JsonUtils.serialize(bodyMap)
-    val url = Platform.getString(
+    var url: String = Platform.getString(
       "user.search.api.url",
       "http://learner-service:9000/private/user/v1/search"
     )
