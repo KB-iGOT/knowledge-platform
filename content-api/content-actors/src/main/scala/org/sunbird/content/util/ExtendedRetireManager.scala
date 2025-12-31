@@ -4,13 +4,11 @@ import com.datastax.driver.core.querybuilder.{Clause, QueryBuilder}
 import com.datastax.driver.core.utils.UUIDs
 import com.datastax.driver.core.{LocalDate, Session}
 import com.google.common.util.concurrent.{FutureCallback, Futures, ListenableFuture, MoreExecutors}
-import com.mashape.unirest.http.Unirest
 import org.apache.commons.lang.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
 import org.sunbird.cache.impl.RedisCache
 import org.sunbird.cassandra.CassandraConnector
 import org.sunbird.common.Platform
-import org.sunbird.common.{JsonUtils, Platform}
 import org.sunbird.common.dto.{Request, Response, ResponseHandler}
 import org.sunbird.common.exception.{ClientException, ErrorCodes, ResponseCode, ServerException}
 import org.sunbird.graph.OntologyEngineContext
@@ -29,9 +27,6 @@ import java.util
 import java.util.{Date, UUID}
 import scala.collection.JavaConverters.collectionAsScalaIterableConverter
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.collection.JavaConverters._
-import scala.util.Try
-
 
 object ExtendedRetireManager {
   val finalStatus: util.List[String] = util.Arrays.asList("Flagged", "Live", "Unlisted")
@@ -493,35 +488,6 @@ object ExtendedRetireManager {
           DataNode.systemUpdate(request, nodeList, "", None)
       updateFut.map { updatedNode =>
         val identifier: String = updatedNode.getIdentifier.replace(".img", "")
-        try {
-          val requestedBy =
-            Option(reqMap.get(ContentConstants.USER_ID_RAISED))
-              .map(_.toString)
-              .getOrElse("")
-          val spvUserIds = fetchSpvPublishers
-          val finalRecipients =
-            (spvUserIds ++ List(requestedBy))
-              .filter(StringUtils.isNotBlank)
-              .distinct
-          if (finalRecipients.nonEmpty) {
-            NotificationManager.sendNotification(
-              "RETIRE_SCHEDULED",
-              "ALERT",
-              finalRecipients,
-              node.getMetadata.get("name").toString,
-              Map[String, Any]("id" -> id)
-            )
-            logger.info(
-              s"[RETIRE-SPV-NOTIFY][SUCCESS] contentId=$id, notifiedUsers=${finalRecipients.size}"
-            )
-          } else {
-            logger.warn(s"[RETIRE-SPV-NOTIFY][SKIPPED] No valid recipients found for contentId=$id")
-          }
-        } catch {
-          case e: Exception =>
-            logger.error(s"[RETIRE-SPV-NOTIFY][FAILED] contentId=$id", e)
-        }
-
         logger.info("Marked content as PendingRetirement for identifier: " + identifier)
         ResponseHandler.OK
           .put("node_id", identifier)
@@ -627,43 +593,5 @@ object ExtendedRetireManager {
       p.future
     }
   }
-
-  def fetchSpvPublishers : List[String] = {
-    val bodyMap = Map(
-      "request" -> Map(
-        "query" -> "",
-        "filters" -> Map(
-          "organisations.roles" -> List("SPV_PUBLISHER").asJava,
-          "status" -> 1
-        ).asJava,
-        "fields" -> List("userId").asJava,
-        "limit" -> 1000
-      ).asJava
-    ).asJava
-    val body = JsonUtils.serialize(bodyMap)
-    var url: String = Platform.getString(
-      "user.search.api.url",
-      "http://learner-service:9000/private/user/v1/search"
-    )
-    val response = Unirest.post(url)
-      .header("Content-Type", "application/json")
-      .body(body)
-      .asString()
-    if (response.getStatus != 200) {
-      logger.error(s"[SPV-SEARCH][FAILED] status=${response.getStatus}, body=${response.getBody}")
-      return List.empty
-    }
-    val json = JsonUtils.deserialize(response.getBody, classOf[java.util.Map[String, AnyRef]])
-    Try {
-      val result = json.get("result").asInstanceOf[java.util.Map[String, AnyRef]]
-      val responseObj = result.get("response").asInstanceOf[java.util.Map[String, AnyRef]]
-      val contentList =
-        responseObj.get("content").asInstanceOf[java.util.List[java.util.Map[String, AnyRef]]]
-      contentList.asScala
-        .flatMap(u => Option(u.get("userId")).map(_.toString))
-        .toList
-    }.getOrElse(List.empty)
-  }
-
 
 }
