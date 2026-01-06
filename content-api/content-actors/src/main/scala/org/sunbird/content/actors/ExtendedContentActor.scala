@@ -11,7 +11,7 @@ import org.sunbird.cloudstore.StorageService
 import org.sunbird.common.dto.{Request, Response, ResponseHandler}
 import org.sunbird.common.exception.{ClientException, ResponseCode}
 import org.sunbird.common.{ContentParams, JsonUtils, Platform}
-import org.sunbird.content.util.ExtendedRetireManager.RichListenableFuture
+import org.sunbird.content.util.ExtendedRetireManager.{RichListenableFuture, retirementRequestKeyspace}
 import org.sunbird.content.util._
 import org.sunbird.graph.OntologyEngineContext
 import org.sunbird.graph.dac.model.Node
@@ -51,6 +51,14 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     )
   private val copyFields: Set[String] =
     Platform.config.getStringList(ContentConstants.CONTENT_COPY_FIELDS).asScala.toSet
+
+  private val retirementByDateTable = "content_retirement_lookup"
+  private val retirementByDateStore =
+    new ExternalStore(
+      retirementRequestKeyspace,
+      retirementByDateTable,
+      util.Arrays.asList("retirement_date", "status", "content_id")
+    )
 
 
   override def onReceive(request: Request): Future[Response] = {
@@ -428,6 +436,11 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             action = action
           ).flatMap { _ =>
 
+            if (ContentConstants.APPROVE.equalsIgnoreCase(action)) {
+              persistRetirementByDate(dbRow)
+            } else {
+              Future.successful(())
+            }
             // Then insert audit log
             ExtendedRetireManager.createRetirementAuditLog(auditRow).flatMap { _ =>
 
@@ -884,6 +897,33 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
         // Ignore everything else safely
         case _ =>
       }
+    }
+  }
+
+  private def persistRetirementByDate(sourceMap: util.Map[String, AnyRef])(implicit ec: ExecutionContext): Future[Response] = {
+
+    val lookupRow = new util.HashMap[String, AnyRef]()
+
+    lookupRow.put("retirement_date",
+      sourceMap.get(ContentConstants.RETIREMENT_DATE))
+
+    lookupRow.put(ContentConstants.STATUS,
+      sourceMap.get(ContentConstants.STATUS))
+
+    lookupRow.put("content_id",
+      sourceMap.get(ContentConstants.IDENTIFIER))
+
+    lookupRow.put(ContentConstants.RQST_ID,
+      sourceMap.get(ContentConstants.RQST_ID))
+
+    lookupRow.put(ContentConstants.APPROVED_AT,
+      sourceMap.get(new java.util.Date()))
+
+    lookupRow.put(ContentConstants.USER_ID_RAISED_FIELD,
+      sourceMap.get(ContentConstants.USER_ID_RAISED_FIELD))
+
+    retirementByDateStore.insert(lookupRow, Map.empty).map { _ =>
+      ResponseHandler.OK()
     }
   }
 
