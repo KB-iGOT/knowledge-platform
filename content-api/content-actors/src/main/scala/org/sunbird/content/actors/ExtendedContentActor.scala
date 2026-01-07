@@ -32,6 +32,8 @@ import scala.collection.JavaConverters._
 import scala.collection.Map
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
+import java.time.{LocalDate, ZonedDateTime}
 
 class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
@@ -430,8 +432,32 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           val dbRow = readResp.getResult.asInstanceOf[java.util.Map[String, AnyRef]]
           val requestId = dbRow.get(ContentConstants.RQST_ID).toString
           val approvedBy = extractUserId(request)
-
-          //Build Audit Row from DB result
+          val today = LocalDate.now()
+          val lastEnrollmentIso =
+            toIsoDate(dbRow.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST))
+          val retirementIso =
+            toIsoDate(dbRow.get(ContentConstants.RETIREMENT_DATE_RQST))
+          val lastEnrollmentDateFetched =
+            ZonedDateTime.parse(lastEnrollmentIso, ISO_FORMATTER).toLocalDate
+          val retirementDateFetched =
+            ZonedDateTime.parse(retirementIso, ISO_FORMATTER).toLocalDate
+          val finalRetirementDate =
+            if (lastEnrollmentDateFetched.isBefore(today)) {
+              val gap = ChronoUnit.DAYS.between(lastEnrollmentDateFetched, retirementDateFetched)
+              today.plusDays(gap)
+            } else {
+              retirementDateFetched
+            }
+          val effectiveLastEnrollmentDate =
+            if (lastEnrollmentDateFetched.isBefore(today)) today else lastEnrollmentDateFetched
+          dbRow.put(
+            ContentConstants.RETIREMENT_DATE_RQST,
+            finalRetirementDate
+          )
+          dbRow.put(
+            ContentConstants.LAST_ENROLLMENT_DATE_RQST,
+            effectiveLastEnrollmentDate
+          )
           val auditRow = buildAuditRowFromDecisionResult(
             contentId = contentId,
             result = dbRow,
@@ -444,7 +470,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             approvedBy = approvedBy,
             keySpace = Platform.getString(ContentConstants.SUNBIRD_COURSE_KEYSPACE, "sunbird_courses"),
             table = Platform.getString(ContentConstants.CONTENT_RETIREMENT_RQST_TABLE, "content_retirement_requests"),
-            action = action
+            action = action,
+            result = dbRow
           ).flatMap { _ =>
 
             // Then insert audit log
@@ -545,7 +572,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
                                                      contentId: String,
                                                      requestId: String,
                                                      approvedBy: String,
-                                                     action : String
+                                                     action : String,
+                                                     result: java.util.Map[String, AnyRef]
                                                    )(implicit ec: ExecutionContext): Future[Response] = {
 
     val update = QueryBuilder.update(keySpace, table)
@@ -570,6 +598,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       .and(QueryBuilder.set(ContentConstants.APPROVED_AT, new java.util.Date()))
       .and(QueryBuilder.set(ContentConstants.STATUS, statusValue))
       .and(QueryBuilder.set(ContentConstants.APPROVED_COMMENT, action))
+      .and(QueryBuilder.set(ContentConstants.LAST_ENROLLMENT_DATE_RQST, result.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST)))
+      .and(QueryBuilder.set(ContentConstants.RETIREMENT_DATE_RQST, result.get(ContentConstants.RETIREMENT_DATE_RQST)))
 
     CassandraConnector.getSession
       .executeAsync(update)
@@ -646,20 +676,10 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
               toOffsetTimestamp(toLocalDate(lastEnrollmentDate))
             )
           }
-          if (lastEnrollmentDate != null && retirementDate != null) {
-            val lastEnrollmentdateFetched = toLocalDate(lastEnrollmentDate)
-            val retirementDateFetched  = toLocalDate(retirementDate)
-            val retirementGapInDays =
-              ChronoUnit.DAYS.between(lastEnrollmentdateFetched, retirementDateFetched)
-            val newRetirementDate =
-              LocalDate.now().plusDays(retirementGapInDays)
+          if (retirementDate != null){
             request.getRequest.put(
               ContentConstants.RETIREMENT_DATE,
-              toOffsetTimestamp(newRetirementDate)
-            )
-            logger.info(
-              s"[RETIRE-DECIDE][RETIREMENT-DATE-RECALC] " + s"lastEnrollment=$lastEnrollmentdateFetched, " +
-                s"oldRetirement=$retirementDateFetched, " + s"diffDays=$retirementGapInDays, " + s"newRetirement=$newRetirementDate"
+              toOffsetTimestamp(toLocalDate(retirementDate))
             )
           }
         case ContentConstants.REJECT =>
@@ -930,6 +950,5 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       }
     }
   }
-
 
 }
