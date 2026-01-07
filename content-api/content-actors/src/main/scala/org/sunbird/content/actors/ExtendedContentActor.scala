@@ -33,6 +33,7 @@ import scala.collection.Map
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
+import java.time.{LocalDate, ZonedDateTime}
 
 class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
@@ -433,36 +434,18 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           val approvedBy = extractUserId(request)
 
           val zone = ZoneId.systemDefault()
-          import java.time.{LocalDate, ZoneId}
-
           val today = LocalDate.now()
+          val lastEnrollmentIso =
+            toIsoDate(dbRow.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST))
+          val retirementIso =
+            toIsoDate(dbRow.get(ContentConstants.RETIREMENT_DATE_RQST))
+          val lastEnrollmentDateFetched =
+            ZonedDateTime.parse(lastEnrollmentIso, ISO_FORMATTER).toLocalDate
+          val retirementDateFetched =
+            ZonedDateTime.parse(retirementIso, ISO_FORMATTER).toLocalDate
 
-          val lastEnrollObj = dbRow.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST)
-          val retirementObj = dbRow.get(ContentConstants.RETIREMENT_DATE_RQST)
-
-          // ---------- Parse Cassandra DATE safely ----------
-          def toLocalDateSafe(value: AnyRef): LocalDate = value match {
-            case date: CassandraLocalDate =>
-              LocalDate.ofEpochDay(date.getDaysSinceEpoch.toLong)
-            case date: java.time.LocalDate =>
-              date
-            case date: java.util.Date =>
-              date.toInstant.atZone(ZoneId.systemDefault()).toLocalDate
-            case date: String if date.nonEmpty =>
-              LocalDate.parse(date)
-            case null =>
-              today
-            case _ =>
-              throw new ClientException(
-                ContentConstants.ERR_INVALID_REQUEST,
-                s"Invalid date format: ${value.getClass}"
-              )
-          }
-          val lastEnrollmentDateFetched = toLocalDateSafe(lastEnrollObj)
-          val retirementDateFetched    = toLocalDateSafe(retirementObj)
           // ---------- Recalculate ONLY if lastEnrollmentDate expired ----------
-          val effectiveLastEnrollmentDate =
-            if (lastEnrollmentDateFetched.isBefore(today)) today else lastEnrollmentDateFetched
+
           val finalRetirementDate =
             if (lastEnrollmentDateFetched.isBefore(today)) {
               val gap = ChronoUnit.DAYS.between(lastEnrollmentDateFetched, retirementDateFetched)
@@ -470,15 +453,17 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             } else {
               retirementDateFetched
             }
+          val effectiveLastEnrollmentDate =
+            if (lastEnrollmentDateFetched.isBefore(today)) today else lastEnrollmentDateFetched
           // ---------- Store back in Cassandra DATE format ----------
           dbRow.put(
             ContentConstants.RETIREMENT_DATE_RQST,
-            toCassandraDate(finalRetirementDate)
+            finalRetirementDate
           )
 
           dbRow.put(
             ContentConstants.LAST_ENROLLMENT_DATE_RQST,
-            toCassandraDate(effectiveLastEnrollmentDate)
+            effectiveLastEnrollmentDate
           )
 
 
@@ -975,12 +960,5 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       }
     }
   }
-
-  import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
-
-  def toCassandraDate(ld: java.time.LocalDate): CassandraLocalDate = {
-    CassandraLocalDate.fromDaysSinceEpoch(ld.toEpochDay.toInt)
-  }
-
 
 }
