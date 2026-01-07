@@ -431,20 +431,72 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           val requestId = dbRow.get(ContentConstants.RQST_ID).toString
           val approvedBy = extractUserId(request)
 
-          //Build Audit Row from DB result
+          val zone = ZoneId.systemDefault()
+          import java.time.{LocalDate, ZoneId}
+          import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
+
+          val today = LocalDate.now()
+
+          val lastEnrollObj = dbRow.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST)
+          val retirementObj = dbRow.get(ContentConstants.RETIREMENT_DATE_RQST)
+
+          // ---------- Parse Cassandra DATE safely ----------
+          def toLocalDateSafe(value: AnyRef): LocalDate = value match {
+            case date: CassandraLocalDate =>
+              LocalDate.ofEpochDay(date.getDaysSinceEpoch.toLong)
+            case date: java.time.LocalDate =>
+              date
+            case date: java.util.Date =>
+              date.toInstant.atZone(ZoneId.systemDefault()).toLocalDate
+            case date: String if date.nonEmpty =>
+              LocalDate.parse(date)
+            case null =>
+              today
+            case _ =>
+              throw new ClientException(
+                ContentConstants.ERR_INVALID_REQUEST,
+                s"Invalid date format: ${value.getClass}"
+              )
+          }
+          val lastEnrollmentDateFetched = toLocalDateSafe(lastEnrollObj)
+          val retirementDateFetched    = toLocalDateSafe(retirementObj)
+          // ---------- Recalculate ONLY if lastEnrollmentDate expired ----------
+          val effectiveLastEnrollmentDate =
+            if (lastEnrollmentDateFetched.isBefore(today)) today else lastEnrollmentDateFetched
+          val finalRetirementDate =
+            if (lastEnrollmentDateFetched.isBefore(today)) {
+              val gap = ChronoUnit.DAYS.between(lastEnrollmentDateFetched, retirementDateFetched)
+              today.plusDays(gap)
+            } else {
+              retirementDateFetched
+            }
+          // ---------- Store back in Cassandra DATE format ----------
+          dbRow.put(
+            ContentConstants.RETIREMENT_DATE_RQST,
+            toCassandraDate(finalRetirementDate)
+          )
+
+          dbRow.put(
+            ContentConstants.LAST_ENROLLMENT_DATE_RQST,
+            toCassandraDate(effectiveLastEnrollmentDate)
+          )
+
+
           val auditRow = buildAuditRowFromDecisionResult(
             contentId = contentId,
             result = dbRow,
             action = action,
             approvedBy = approvedBy
           )
+
           updateRetirementRequestByCompositeKey(
             contentId = contentId,
             requestId = requestId,
             approvedBy = approvedBy,
             keySpace = Platform.getString(ContentConstants.SUNBIRD_COURSE_KEYSPACE, "sunbird_courses"),
             table = Platform.getString(ContentConstants.CONTENT_RETIREMENT_RQST_TABLE, "content_retirement_requests"),
-            action = action
+            action = action,
+            result = dbRow
           ).flatMap { _ =>
 
             // Then insert audit log
@@ -545,7 +597,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
                                                      contentId: String,
                                                      requestId: String,
                                                      approvedBy: String,
-                                                     action : String
+                                                     action : String,
+                                                     result: java.util.Map[String, AnyRef]
                                                    )(implicit ec: ExecutionContext): Future[Response] = {
 
     val update = QueryBuilder.update(keySpace, table)
@@ -570,6 +623,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       .and(QueryBuilder.set(ContentConstants.APPROVED_AT, new java.util.Date()))
       .and(QueryBuilder.set(ContentConstants.STATUS, statusValue))
       .and(QueryBuilder.set(ContentConstants.APPROVED_COMMENT, action))
+      .and(QueryBuilder.set(ContentConstants.LAST_ENROLLMENT_DATE_RQST, result.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST)))
+      .and(QueryBuilder.set(ContentConstants.RETIREMENT_DATE_RQST, result.get(ContentConstants.RETIREMENT_DATE_RQST)))
 
     CassandraConnector.getSession
       .executeAsync(update)
@@ -646,20 +701,10 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
               toOffsetTimestamp(toLocalDate(lastEnrollmentDate))
             )
           }
-          if (lastEnrollmentDate != null && retirementDate != null) {
-            val lastEnrollmentdateFetched = toLocalDate(lastEnrollmentDate)
-            val retirementDateFetched  = toLocalDate(retirementDate)
-            val retirementGapInDays =
-              ChronoUnit.DAYS.between(lastEnrollmentdateFetched, retirementDateFetched)
-            val newRetirementDate =
-              LocalDate.now().plusDays(retirementGapInDays)
+          if (retirementDate != null){
             request.getRequest.put(
               ContentConstants.RETIREMENT_DATE,
-              toOffsetTimestamp(newRetirementDate)
-            )
-            logger.info(
-              s"[RETIRE-DECIDE][RETIREMENT-DATE-RECALC] " + s"lastEnrollment=$lastEnrollmentdateFetched, " +
-                s"oldRetirement=$retirementDateFetched, " + s"diffDays=$retirementGapInDays, " + s"newRetirement=$newRetirementDate"
+              toOffsetTimestamp(toLocalDate(retirementDate))
             )
           }
         case ContentConstants.REJECT =>
@@ -929,6 +974,12 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
         case _ =>
       }
     }
+  }
+
+  import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
+
+  def toCassandraDate(ld: java.time.LocalDate): CassandraLocalDate = {
+    CassandraLocalDate.fromDaysSinceEpoch(ld.toEpochDay.toInt)
   }
 
 
