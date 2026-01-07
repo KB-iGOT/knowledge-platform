@@ -452,11 +452,11 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             if (lastEnrollmentDateFetched.isBefore(today)) today else lastEnrollmentDateFetched
           dbRow.put(
             ContentConstants.RETIREMENT_DATE_RQST,
-            toIsoDate(finalRetirementDate)
+            toCassandraLocalDate(finalRetirementDate)
           )
           dbRow.put(
             ContentConstants.LAST_ENROLLMENT_DATE_RQST,
-            toIsoDate(effectiveLastEnrollmentDate)
+            toCassandraLocalDate(effectiveLastEnrollmentDate)
           )
           val updateRow = buildAuditRowFromDecisionResult(
             contentId = contentId,
@@ -950,5 +950,12 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       }
     }
   }
+
+  private def toCassandraLocalDate(d: LocalDate): CassandraLocalDate =
+    CassandraLocalDate.fromYearMonthDay(
+      d.getYear,
+      d.getMonthValue,
+      d.getDayOfMonth
+    )
 
 }
