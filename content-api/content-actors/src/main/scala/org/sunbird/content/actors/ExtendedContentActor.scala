@@ -452,13 +452,13 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             if (lastEnrollmentDateFetched.isBefore(today)) today else lastEnrollmentDateFetched
           dbRow.put(
             ContentConstants.RETIREMENT_DATE_RQST,
-            finalRetirementDate
+            toIsoDate(finalRetirementDate)
           )
           dbRow.put(
             ContentConstants.LAST_ENROLLMENT_DATE_RQST,
-            effectiveLastEnrollmentDate
+            toIsoDate(effectiveLastEnrollmentDate)
           )
-          val auditRow = buildAuditRowFromDecisionResult(
+          val updateRow = buildAuditRowFromDecisionResult(
             contentId = contentId,
             result = dbRow,
             action = action,
@@ -475,7 +475,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           ).flatMap { _ =>
 
             // Then insert audit log
-            ExtendedRetireManager.createRetirementAuditLog(auditRow).flatMap { _ =>
+            ExtendedRetireManager.createRetirementAuditLog(updateRow).flatMap { _ =>
 
               markContentPendingRetirement(
                 request = request,
