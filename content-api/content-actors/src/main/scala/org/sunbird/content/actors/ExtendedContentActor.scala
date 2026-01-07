@@ -432,8 +432,6 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           val dbRow = readResp.getResult.asInstanceOf[java.util.Map[String, AnyRef]]
           val requestId = dbRow.get(ContentConstants.RQST_ID).toString
           val approvedBy = extractUserId(request)
-
-          val zone = ZoneId.systemDefault()
           val today = LocalDate.now()
           val lastEnrollmentIso =
             toIsoDate(dbRow.get(ContentConstants.LAST_ENROLLMENT_DATE_RQST))
@@ -443,9 +441,6 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             ZonedDateTime.parse(lastEnrollmentIso, ISO_FORMATTER).toLocalDate
           val retirementDateFetched =
             ZonedDateTime.parse(retirementIso, ISO_FORMATTER).toLocalDate
-
-          // ---------- Recalculate ONLY if lastEnrollmentDate expired ----------
-
           val finalRetirementDate =
             if (lastEnrollmentDateFetched.isBefore(today)) {
               val gap = ChronoUnit.DAYS.between(lastEnrollmentDateFetched, retirementDateFetched)
@@ -455,25 +450,20 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             }
           val effectiveLastEnrollmentDate =
             if (lastEnrollmentDateFetched.isBefore(today)) today else lastEnrollmentDateFetched
-          // ---------- Store back in Cassandra DATE format ----------
           dbRow.put(
             ContentConstants.RETIREMENT_DATE_RQST,
             finalRetirementDate
           )
-
           dbRow.put(
             ContentConstants.LAST_ENROLLMENT_DATE_RQST,
             effectiveLastEnrollmentDate
           )
-
-
           val auditRow = buildAuditRowFromDecisionResult(
             contentId = contentId,
             result = dbRow,
             action = action,
             approvedBy = approvedBy
           )
-
           updateRetirementRequestByCompositeKey(
             contentId = contentId,
             requestId = requestId,
