@@ -32,6 +32,7 @@ import scala.collection.JavaConverters._
 import scala.collection.Map
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
 
 class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
@@ -433,7 +434,6 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
 
           val zone = ZoneId.systemDefault()
           import java.time.{LocalDate, ZoneId}
-          import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
 
           val today = LocalDate.now()
 
