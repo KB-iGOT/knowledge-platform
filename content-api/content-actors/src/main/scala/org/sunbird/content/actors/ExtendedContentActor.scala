@@ -55,6 +55,14 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
   private val copyFields: Set[String] =
     Platform.config.getStringList(ContentConstants.CONTENT_COPY_FIELDS).asScala.toSet
 
+  private val retirementByDateTable = ContentConstants.CONTENT_RETIREMENT_BY_DATE_TABLE
+  private val retirementByDateStore =
+    new ExternalStore(
+      retirementRequestKeyspace,
+      retirementByDateTable,
+      util.Arrays.asList(ContentConstants.RET_DATE, ContentConstants.STATUS, ContentConstants.RETITEMENT_PRIMARY_KEY)
+    )
+
 
   override def onReceive(request: Request): Future[Response] = {
     request.getOperation match {
@@ -474,6 +482,11 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             result = dbRow
           ).flatMap { _ =>
 
+            if (ContentConstants.APPROVE.equalsIgnoreCase(action)) {
+              persistRetirementByDate(contentId,  dbRow)
+            } else {
+              Future.successful(())
+            }
             // Then insert audit log
             ExtendedRetireManager.createRetirementAuditLog(updateRow).flatMap { _ =>
 
@@ -957,5 +970,30 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       d.getMonthValue,
       d.getDayOfMonth
     )
+
+  private def persistRetirementByDate(contentId: String, sourceMap: util.Map[String, AnyRef])(implicit ec: ExecutionContext): Future[Response] = {
+
+    val lookupRow = new util.HashMap[String, AnyRef]()
+
+    lookupRow.put(ContentConstants.IDENTIFIER,
+      sourceMap.get(ContentConstants.RETIREMENT_DATE_RQST))
+
+    lookupRow.put(ContentConstants.STATUS,
+      sourceMap.get(ContentConstants.STATUS))
+
+    lookupRow.put(ContentConstants.RETITEMENT_PRIMARY_KEY, contentId)
+
+    lookupRow.put(ContentConstants.RQST_ID,
+      sourceMap.get(ContentConstants.RQST_ID))
+
+    lookupRow.put(ContentConstants.APPROVED_AT, new java.util.Date())
+
+    lookupRow.put(ContentConstants.USER_ID_RAISED_FIELD,
+      sourceMap.get(ContentConstants.USER_ID_RAISED_FIELD))
+
+    retirementByDateStore.insert(lookupRow, Map.empty).map { _ =>
+      ResponseHandler.OK()
+    }
+  }
 
 }

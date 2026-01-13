@@ -2,7 +2,6 @@ package org.sunbird.content.util
 
 import com.datastax.driver.core.querybuilder.{Clause, QueryBuilder}
 import com.datastax.driver.core.utils.UUIDs
-import com.datastax.driver.core.{LocalDate, Session}
 import com.google.common.util.concurrent.{FutureCallback, Futures, ListenableFuture, MoreExecutors}
 import org.apache.commons.lang.StringUtils
 import org.slf4j.{Logger, LoggerFactory}
@@ -22,11 +21,15 @@ import org.sunbird.util.RequestUtil
 
 import java.time.format.{DateTimeFormatter, DateTimeParseException}
 import java.time.temporal.ChronoUnit
-import java.time.{Instant, ZoneOffset}
+import java.time.{Instant, ZoneOffset, ZonedDateTime, LocalDate => JLocalDate}
 import java.util
 import java.util.{Date, UUID}
 import scala.collection.JavaConverters.collectionAsScalaIterableConverter
 import scala.concurrent.{ExecutionContext, Future, Promise}
+import com.datastax.driver.core.Session
+import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
+
+
 
 object ExtendedRetireManager {
   val finalStatus: util.List[String] = util.Arrays.asList("Flagged", "Live", "Unlisted")
@@ -42,6 +45,13 @@ object ExtendedRetireManager {
       retirementRequestKeyspace,
       retirementRequestTable,
       util.Arrays.asList(ContentConstants.RETITEMENT_PRIMARY_KEY)
+    )
+
+  private val retirementLookupStore =
+    new ExternalStore(
+      Platform.config.getString("cassandra.keyspace.course.content"),
+      ContentConstants.CONTENT_RETIREMENT_LOOKUP_TABLE,
+      java.util.Arrays.asList(ContentConstants.REQUEST_RAISED_DATE, ContentConstants.STATUS, ContentConstants.RETITEMENT_PRIMARY_KEY)
     )
 
   private val logger: Logger = LoggerFactory.getLogger("ExtendedRetireManager")
@@ -304,6 +314,7 @@ object ExtendedRetireManager {
     val propsMapping: Map[String, String] = Map.empty
     val auditMap = new util.HashMap[String, AnyRef](rowMap)
     retirementRequestStore.insert(rowMap, propsMapping)
+    persistRetirementLookup(auditMap)
     createRetirementAuditLog(auditMap)
   }
 
@@ -330,15 +341,24 @@ object ExtendedRetireManager {
     val retirementStr = Option(reqMap.get(ContentConstants.RETIREMENT_DATE)).map(_.toString)
 
     val isoFormatter = DateTimeFormatter.ISO_INSTANT
-
-    def toLocalDateOpt(sOpt: Option[String]): Option[LocalDate] =
+    def toLocalDateOpt(sOpt: Option[String]): Option[JLocalDate] =
       sOpt.map { s =>
         val instant = Instant.from(isoFormatter.parse(s))
-        LocalDate.fromMillisSinceEpoch(instant.toEpochMilli)
+        instant.atZone(ZoneOffset.UTC).toLocalDate
       }
-
-    toLocalDateOpt(lastEnrollmentStr).foreach(date => retirementMap.put(ContentConstants.LST_ENR_DATE, date))
-    toLocalDateOpt(retirementStr).foreach(date => retirementMap.put(ContentConstants.RET_DATE, date))
+    toLocalDateOpt(lastEnrollmentStr).foreach(date =>
+        retirementMap.put(
+          ContentConstants.LST_ENR_DATE,
+          toCassandraLocalDate(date)
+        )
+      )
+    toLocalDateOpt(retirementStr)
+      .foreach(date =>
+        retirementMap.put(
+          ContentConstants.RET_DATE,
+          toCassandraLocalDate(date)
+        )
+      )
     val now = new Date()
     retirementMap.put(ContentConstants.CREATED_AT, now)
     retirementMap.put(ContentConstants.UPDATED_AT, now)
@@ -594,5 +614,68 @@ object ExtendedRetireManager {
       p.future
     }
   }
+
+  private def persistRetirementLookup(sourceMap: util.Map[String, AnyRef])(implicit ec: ExecutionContext): Future[Response] = {
+
+    val lookupRow = buildRetirementLookupRow(sourceMap)
+    retirementLookupStore
+      .insert(lookupRow, Map.empty)
+      .map(_ => ResponseHandler.OK())
+  }
+
+  private def buildRetirementLookupRow(sourceMap: util.Map[String, AnyRef]): util.Map[String, AnyRef] = {
+
+    val row = new util.HashMap[String, AnyRef]()
+    val contentId = sourceMap.get(ContentConstants.IDENTIFIER).toString
+
+    val createdAt =
+      sourceMap.get(ContentConstants.CREATED_AT)
+        .asInstanceOf[java.util.Date]
+
+    val requestRaisedIso = toIsoDate(createdAt)
+
+    val requestRaisedLocalDate =
+      ZonedDateTime
+        .parse(requestRaisedIso, ISO_FORMATTER)
+        .toLocalDate
+
+    val requestRaisedCassandraDate =
+      toCassandraLocalDate(requestRaisedLocalDate)
+
+    row.put(ContentConstants.IDENTIFIER, requestRaisedCassandraDate)
+    row.put(ContentConstants.STATUS, sourceMap.get(ContentConstants.STATUS))
+    row.put(ContentConstants.RETITEMENT_PRIMARY_KEY, contentId)
+    row.put(ContentConstants.RQST_ID, sourceMap.get(ContentConstants.RQST_ID))
+    row.put(ContentConstants.USER_ID_RAISED_FIELD, sourceMap.get(ContentConstants.USER_ID_RAISED_FIELD))
+    row.put(ContentConstants.RET_DATE, sourceMap.get(ContentConstants.RET_DATE))
+    row
+  }
+
+  private val ISO_FORMATTER =
+    DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
+
+  private def toIsoDate(value: AnyRef): String = {
+    value match {
+      case date: com.datastax.driver.core.LocalDate =>
+        JLocalDate
+          .of(date.getYear, date.getMonth, date.getDay)
+          .atStartOfDay()
+          .atZone(ZoneOffset.UTC)
+          .format(ISO_FORMATTER)
+      case date: java.util.Date =>
+        date.toInstant
+          .atZone(ZoneOffset.UTC)
+          .format(ISO_FORMATTER)
+      case _ =>
+        null
+    }
+  }
+
+  private def toCassandraLocalDate(d: java.time.LocalDate): CassandraLocalDate =
+    CassandraLocalDate.fromYearMonthDay(
+      d.getYear,
+      d.getMonthValue,
+      d.getDayOfMonth
+    )
 
 }
