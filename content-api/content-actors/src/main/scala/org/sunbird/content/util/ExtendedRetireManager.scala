@@ -343,9 +343,7 @@ object ExtendedRetireManager {
     val now = new Date()
     val cassandraDate: CassandraLocalDate =
       CassandraLocalDate.fromMillisSinceEpoch(now.getTime)
-
     retirementMap.put(ContentConstants.CREATED_DATE, cassandraDate)
-
     retirementMap.put(ContentConstants.CREATED_AT, now)
     retirementMap.put(ContentConstants.UPDATED_AT, now)
     retirementMap.put(ContentConstants.STATUS, ContentConstants.PENDING)
