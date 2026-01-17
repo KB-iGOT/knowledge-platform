@@ -179,5 +179,8 @@ object ContentConstants {
     val CONTEXT_DATA= "contextdata"
     val IS_ARCHIVED= "isarchived"
     val CONTENT_COPY_FIELDS = "content.copy.fields"
+    val CONTENT_RETIREMENT_BY_DATE_TABLE = "content_retirement_by_date"
+    val CONTENT_RETIREMENT_LOOKUP_TABLE = "content_retirement_lookup"
+    val REQUEST_RAISED_DATE = "request_raised_date"
 
 }
