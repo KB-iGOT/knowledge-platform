@@ -164,14 +164,14 @@ object NodeUtil {
             "name" -> rel.getEndNodeName,
             "objectType" -> objectType,
             "relation" -> rel.getRelationType) ++ relationObjectAttributes(objectType).map(key => (key -> rel.getEndNodeMetadata.get(key))).toMap
-          mapAsJavaMap(relData)
+          JavaConverters.mapAsJavaMap(relData)
         } else {
           val objectType = rel.getStartNodeObjectType.replace("Image", "")
           val relData = Map("identifier" -> rel.getStartNodeId.replace(".img", ""),
             "name" -> rel.getStartNodeName,
             "objectType" -> objectType,
             "relation" -> rel.getRelationType) ++ relationObjectAttributes(objectType).map(key => (key -> rel.getStartNodeMetadata.get(key))).toMap
-          mapAsJavaMap(relData)
+          JavaConverters.mapAsJavaMap(relData)
         }
     }
 
