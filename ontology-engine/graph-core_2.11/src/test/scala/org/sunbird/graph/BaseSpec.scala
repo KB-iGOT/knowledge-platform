@@ -13,7 +13,12 @@ import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
 import org.sunbird.cassandra.CassandraConnector
 import org.sunbird.common.Platform
 
+import scala.concurrent.ExecutionContext
+
 class BaseSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
+
+    // Explicitly provide the ExecutionContext to avoid compilation issues
+    override implicit val executionContext: ExecutionContext = ExecutionContext.global
 
     var graphDb: GraphDatabaseService = null
     var session: Session = null
