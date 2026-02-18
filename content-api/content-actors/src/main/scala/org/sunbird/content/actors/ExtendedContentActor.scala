@@ -980,6 +980,11 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
    * @return Future[Response] with enriched milestone data
    */
   def extendedRead(request: Request): Future[Response] = {
+    // If mode=edit, read from .img version without caching
+    val mode = Option(request.getRequest.get(ContentConstants.MODE)).map(_.toString).getOrElse("")
+    if (StringUtils.equalsIgnoreCase(mode, ContentConstants.EDIT_MODE)) {
+      return extendedReadForEdit(request)
+    }
     //Extract identifier and build cache key
     val identifier = request.getRequest.getOrDefault(ContentConstants.IDENTIFIER, "").asInstanceOf[String]
     val cacheKey = s"${ContentConstants.EXTENDED_READ_CONTENT_CACHE_KEY_PREFIX}$identifier"
@@ -1553,6 +1558,44 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
         errorMap.put(ContentConstants.IDENTIFIER, assessmentId)
         errorMap.put(ContentConstants.ERROR, s"Failed to fetch: ${e.getMessage}")
         errorMap
+    }
+  }
+
+  /**
+   * Extended read for mode=edit: reads from the .img (draft) version of the content.
+   * Follows the same enrichment flow as extendedRead but skips Redis cache entirely —
+   * neither reads from cache nor writes to it.
+   *
+   * @param request Request with identifier and mode=edit
+   * @return Future[Response] with enriched content data (not cached)
+   */
+  private def extendedReadForEdit(request: Request): Future[Response] = {
+    val identifier = request.getRequest.getOrDefault(ContentConstants.IDENTIFIER, "").asInstanceOf[String]
+    logger.info(s"[extendedReadForEdit] mode=edit, reading .img version for identifier: $identifier")
+    request.getRequest.put(ContentConstants.FIELDS, contentEnrichmentFields)
+    read(request).flatMap { response =>
+      val responseSchemaName: String = request.getContext.getOrDefault(ContentConstants.RESPONSE_SCHEMA_NAME, "").asInstanceOf[String]
+      val contentKey = if (responseSchemaName.isEmpty) ContentConstants.CONTENT else responseSchemaName
+      val contentMetadata = response.getResult.get(contentKey).asInstanceOf[util.Map[String, AnyRef]]
+      val courseCategory = contentMetadata.getOrDefault(ContentConstants.COURSE_CATEGORY, "").asInstanceOf[String]
+      if (enrichChildrenCategories.exists(enrichCat => StringUtils.equalsIgnoreCase(enrichCat, courseCategory))) {
+        logger.info(s"[extendedReadForEdit] Enriching children for category: $courseCategory, identifier: $identifier")
+        enrichContentChildren(identifier, courseCategory, contentMetadata, response, contentKey, request)
+      } else {
+        logger.info(s"[extendedReadForEdit] Skipping children enrichment for category: $courseCategory, identifier: $identifier")
+        Future.successful(response)
+      }
+      // No caching — edit mode reads must always reflect latest state
+    }.recover {
+      case e: ClientException =>
+        logger.error(s"[extendedReadForEdit] ClientException for $identifier: ${e.getMessage}", e)
+        throw e
+      case e: Exception =>
+        logger.error(s"[extendedReadForEdit] Exception for $identifier: ${e.getMessage}", e)
+        throw e
+      case e: Throwable =>
+        logger.error(s"[extendedReadForEdit] Final recover for identifier=$identifier", e)
+        throw e
     }
   }
 }
