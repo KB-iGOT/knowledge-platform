@@ -1,7 +1,6 @@
 package org.sunbird.channel
 
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.sunbird.common.dto.Request
 
 import java.util

@@ -1,7 +1,6 @@
 package org.sunbird.cloudstore
 
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{AsyncFlatSpec, Matchers}
 
 class StorageServiceTest extends AsyncFlatSpec with Matchers {
     val ss = new StorageService

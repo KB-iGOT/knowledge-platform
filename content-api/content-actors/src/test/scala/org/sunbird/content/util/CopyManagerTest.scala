@@ -4,8 +4,7 @@ import java.util
 
 import org.apache.commons.collections.MapUtils
 import org.scalamock.scalatest.AsyncMockFactory
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.sunbird.cloud.storage.util.JSONUtils
 import org.sunbird.cloudstore.StorageService
 import org.sunbird.common.dto.{Property, Request}

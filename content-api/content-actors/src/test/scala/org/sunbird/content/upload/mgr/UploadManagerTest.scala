@@ -2,8 +2,7 @@ package org.sunbird.content.upload.mgr
 
 import java.util
 
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.sunbird.graph.dac.model.Node
 
 class UploadManagerTest extends AsyncFlatSpec with Matchers {

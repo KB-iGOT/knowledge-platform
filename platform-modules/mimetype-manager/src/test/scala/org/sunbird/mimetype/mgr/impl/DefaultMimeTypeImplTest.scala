@@ -4,8 +4,7 @@ import java.io.File
 
 import com.google.common.io.Resources
 import org.scalamock.scalatest.AsyncMockFactory
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.sunbird.models.UploadParams
 import org.sunbird.cloudstore.StorageService
 import org.sunbird.common.exception.ClientException

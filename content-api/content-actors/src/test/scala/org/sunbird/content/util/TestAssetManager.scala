@@ -3,8 +3,7 @@ package org.sunbird.content.util
 import java.util
 
 import org.scalamock.scalatest.AsyncMockFactory
-import org.scalatest.flatspec.AsyncFlatSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.sunbird.common.dto.{Property, Request}
 import org.sunbird.common.exception.ResponseCode
 import org.sunbird.graph.{GraphService, OntologyEngineContext}
