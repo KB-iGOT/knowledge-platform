@@ -5,7 +5,8 @@ import java.io.File
 import com.google.common.io.Resources
 import org.apache.commons.io.FileUtils
 import org.sunbird.graph.dac.model.Node
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AsyncFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.sunbird.cloudstore.StorageService
 import org.sunbird.common.exception.ClientException
 
