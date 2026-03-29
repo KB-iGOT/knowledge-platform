@@ -201,9 +201,9 @@ object DataNode {
     newRequest.putAll(metadata)
     newRequest.getContext.put("versioning", "disabled")
     // Enrich Hierarchy and Update the nodes
-    nodeList.map(node => {
+    Future.sequence(nodeList.map(node => {
       enrichHierarchyAndUpdate(newRequest, node, status, hierarchyKey, hierarchyFunc)
-    }).head
+    })).map(_.head)
   }
 
   @throws[Exception]
