@@ -5,6 +5,7 @@ import java.util
 import org.sunbird.graph.BaseSpec
 import org.sunbird.graph.dac.model.Node
 import org.sunbird.graph.schema.DefinitionFactory
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.Future
 
@@ -45,7 +46,7 @@ class TestSchemaValidator extends BaseSpec {
     node.setGraphId("domain")
     node.setMetadata(metaData)
 
-    val future: Future[Node] = definition.validate(node, "create")
+   implicit val future: Future[Node] = definition.validate(node, "create")
     future map { node => assert(null != node) }
   }
 }

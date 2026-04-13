@@ -1,10 +1,10 @@
 package org.sunbird.content.util
 
 import java.util
-
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.{FlatSpec, Matchers}
-class FlagManagerTest extends FlatSpec with Matchers with MockFactory {
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+class FlagManagerTest extends AnyFlatSpec with Matchers with MockFactory {
 
   "addFlagReasons with metadata metadata without flagReasons" should "return flaggedList with only list with request flagReasons value" in {
     val requestFlagReasons = java.util.Arrays.asList("Not a valid content")

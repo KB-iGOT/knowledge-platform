@@ -35,7 +35,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 
 		val request = getQuestionRequest()
 		request.getContext.put("identifier", "do1234")
-		request.putAll(mapAsJavaMap(Map("channel"-> "in.ekstep","name" -> "New Content", "code" -> "1234", "mimeType"-> "application/vnd.sunbird.question", "primaryCategory" -> "Multiple Choice Question", "visibility" -> "Default")))
+		request.putAll(Map[String, Object]("channel"-> "in.ekstep","name" -> "New Content", "code" -> "1234", "mimeType"-> "application/vnd.sunbird.question", "primaryCategory" -> "Multiple Choice Question", "visibility" -> "Default").asJava)
 		request.setOperation("createQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert("successful".equals(response.getParams.getStatus))
@@ -49,7 +49,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 		(graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node))
 		val request = getQuestionRequest()
 		request.getContext.put("identifier", "do1234")
-		request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+		request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> "").asJava)
 		request.setOperation("readQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert("successful".equals(response.getParams.getStatus))
@@ -70,7 +70,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 		val request = getQuestionRequest()
 		request.getContext.put("identifier","do1234")
 		request.getRequest.put("channel", "abc-123")
-		request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+		request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> "").asJava)
 		request.setOperation("readPrivateQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert("successful".equals(response.getParams.getStatus))
@@ -81,7 +81,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 		val graphDB = mock[GraphService]
 		val request = getQuestionRequest()
 		request.getContext.put("identifier","do1234")
-		request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+		request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> "").asJava)
 		request.setOperation("readPrivateQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert(response.getResponseCode == ResponseCode.CLIENT_ERROR)
@@ -104,7 +104,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 		val request = getQuestionRequest()
 		request.getContext.put("identifier","do1234")
 		request.getRequest.put("channel", "abc")
-		request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+		request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> "").asJava)
 		request.setOperation("readPrivateQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert(response.getResponseCode == ResponseCode.CLIENT_ERROR)
@@ -125,7 +125,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 		(graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node))
 		val request = getQuestionRequest()
 		request.getContext.put("identifier", "do1234")
-		request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+		request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> "").asJava)
 		request.setOperation("readQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert(response.getResponseCode == ResponseCode.CLIENT_ERROR)
@@ -145,7 +145,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 
 		val request = getQuestionRequest()
 		request.getContext.put("identifier", "do1234")
-		request.putAll(mapAsJavaMap(Map( "versionKey" -> "1234", "description" -> "updated desc")))
+		request.putAll(Map[String, Object]( "versionKey" -> "1234", "description" -> "updated desc").asJava)
 		request.setOperation("updateQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert("successful".equals(response.getParams.getStatus))
@@ -165,7 +165,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 
 		val request = getQuestionRequest()
 		request.getContext.put("identifier", "do1234")
-		request.putAll(mapAsJavaMap(Map( "versionKey" -> "1234", "description" -> "updated desc")))
+		request.putAll(Map[String, Object]( "versionKey" -> "1234", "description" -> "updated desc").asJava)
 		request.setOperation("reviewQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert("successful".equals(response.getParams.getStatus))
@@ -181,7 +181,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 		(graphDB.updateNodes(_: String, _: util.List[String], _: util.HashMap[String, AnyRef])).expects(*, *, *).returns(Future(new util.HashMap[String, Node]))
 		val request = getQuestionRequest()
 		request.getContext.put("identifier", "do1234")
-		request.putAll(mapAsJavaMap(Map( "versionKey" -> "1234", "description" -> "updated desc")))
+		request.putAll(Map[String, Object]( "versionKey" -> "1234", "description" -> "updated desc").asJava)
 		request.setOperation("retireQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert("successful".equals(response.getParams.getStatus))
@@ -199,7 +199,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 		(kfClient.send(_:String, _:String)).expects(*,*).once()
 		val request = getQuestionRequest()
 		request.getContext.put("identifier", "do1234")
-		request.putAll(mapAsJavaMap(Map( "versionKey" -> "1234", "description" -> "updated desc")))
+		request.putAll(Map[String, Object]("versionKey" -> "1234", "description" -> "updated desc").asJava)
 		request.setOperation("publishQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert("successful".equals(response.getParams.getStatus))
@@ -252,7 +252,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 		(graphDB.getNodeProperty(_: String, _: String, _: String)).expects(*, *, *).returns(Future(new Property("versionKey", new org.neo4j.driver.internal.value.StringValue("1234"))))
 		val request = getQuestionRequest()
 		request.getContext.put("identifier", "test_id")
-		request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+		request.putAll(Map[String, Object]("versionKey" -> "1234", "description" -> "updated desc").asJava)
 		request.setOperation("systemUpdateQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert("successful".equals(response.getParams.getStatus))
@@ -309,7 +309,7 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 
 		val request = getQuestionRequest()
 		request.getContext.put("identifier", "do1234")
-		request.putAll(mapAsJavaMap(Map( "versionKey" -> "1234", "description" -> "updated description","rejectComment" -> "Rejected for testing")))
+		request.putAll(Map[String, Object]( "versionKey" -> "1234", "description" -> "updated description","rejectComment" -> "Rejected for testing").asJava)
 		request.setOperation("rejectQuestion")
 		val response = callActor(request, Props(new QuestionActor()))
 		assert("successful".equals(response.getParams.getStatus))
@@ -335,8 +335,8 @@ class QuestionActorTest extends BaseSpec with MockFactory {
 		node.setNodeType("DATA_NODE")
 		node.setObjectType("ObjectCategoryDefinition")
 		node.setGraphId("domain")
-		node.setMetadata(mapAsJavaMap(
-			ScalaJsonUtils.deserialize[Map[String,AnyRef]]("{\n    \"objectCategoryDefinition\": {\n      \"name\": \"Learning Resource\",\n      \"description\": \"Content Playlist\",\n      \"categoryId\": \"obj-cat:practice_question_set\",\n      \"targetObjectType\": \"Content\",\n      \"objectMetadata\": {\n        \"config\": {},\n        \"schema\": {\n          \"required\": [\n            \"author\",\n            \"copyright\",\n            \"license\",\n            \"audience\"\n          ],\n          \"properties\": {\n            \"audience\": {\n              \"type\": \"array\",\n              \"items\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"Student\",\n                  \"Teacher\"\n                ]\n              },\n              \"default\": [\n                \"Student\"\n              ]\n            },\n            \"mimeType\": {\n              \"type\": \"string\",\n              \"enum\": [\n                \"application/pdf\"\n              ]\n            }\n          }\n        }\n      }\n    }\n  }")))
+		node.setMetadata(
+			ScalaJsonUtils.deserialize[Map[String,AnyRef]]("{\n    \"objectCategoryDefinition\": {\n      \"name\": \"Learning Resource\",\n      \"description\": \"Content Playlist\",\n      \"categoryId\": \"obj-cat:practice_question_set\",\n      \"targetObjectType\": \"Content\",\n      \"objectMetadata\": {\n        \"config\": {},\n        \"schema\": {\n          \"required\": [\n            \"author\",\n            \"copyright\",\n            \"license\",\n            \"audience\"\n          ],\n          \"properties\": {\n            \"audience\": {\n              \"type\": \"array\",\n              \"items\": {\n                \"type\": \"string\",\n                \"enum\": [\n                  \"Student\",\n                  \"Teacher\"\n                ]\n              },\n              \"default\": [\n                \"Student\"\n              ]\n            },\n            \"mimeType\": {\n              \"type\": \"string\",\n              \"enum\": [\n                \"application/pdf\"\n              ]\n            }\n          }\n        }\n      }\n    }\n  }").asJava)
 		node
 	}
 }

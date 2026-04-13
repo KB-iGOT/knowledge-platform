@@ -45,6 +45,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.scalactic</groupId>
+            <artifactId>scalactic_2.12</artifactId>
+            <version>3.2.18</version>
+        </dependency>
+        <dependency>
             <groupId>org.sunbird</groupId>
             <artifactId>cassandra-connector</artifactId>
             <version>1.0-SNAPSHOT</version>
@@ -54,8 +59,16 @@
             <artifactId>neo4j-bolt</artifactId>
             <exclusions>
                 <exclusion>
-                    <groupId>org.apache.commons</groupId>
-                    <artifactId>commons-lang3</artifactId>
+                    <groupId>org.scalatest</groupId>
+                    <artifactId>scalatest_2.11</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scalactic</groupId>
+                    <artifactId>scalactic_2.11</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
                 </exclusion>
             </exclusions>
             <version>3.5.0</version>
@@ -66,12 +79,28 @@
             <artifactId>neo4j-graphdb-api</artifactId>
             <version>3.5.0</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.neo4j</groupId>
             <artifactId>neo4j</artifactId>
             <version>3.5.0</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-lang3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.cassandraunit</groupId>
@@ -84,6 +113,11 @@
                     <artifactId>commons-lang3</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>${scala.version}</version>
         </dependency>
     </dependencies>
 
@@ -120,7 +154,7 @@
             <plugin>
                 <groupId>org.scalatest</groupId>
                 <artifactId>scalatest-maven-plugin</artifactId>
-                <version>2.2.0</version>
+                <version>2.0.0</version>
                 <executions>
                     <execution>
                         <id>test</id>

@@ -63,6 +63,20 @@
 			<artifactId>neo4j-cypher</artifactId>
 			<version>3.5.0</version>
 			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>org.apache.commons</groupId>
+					<artifactId>commons-lang3</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.scalatest</groupId>
+					<artifactId>scalatest_2.11</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>org.scalactic</groupId>
+					<artifactId>scalactic_2.11</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 

@@ -12,8 +12,8 @@ import org.junit.Test;
 
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.mockito.internal.util.reflection.Whitebox;
 import org.powermock.core.classloader.annotations.PrepareForTest;
-import org.powermock.reflect.Whitebox;
 import org.sunbird.schema.ISchemaValidator;
 import org.sunbird.schema.SchemaValidatorFactory;
 import org.sunbird.schema.dto.ValidationResult;

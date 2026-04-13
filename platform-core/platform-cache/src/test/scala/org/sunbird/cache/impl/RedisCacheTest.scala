@@ -1,12 +1,15 @@
 package org.sunbird.cache.impl
 
 
-import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.matchers.should.Matchers
 
 import scala.collection.immutable.Stream.Empty
 import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
 
-class RedisCacheTest extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
+class RedisCacheTest extends AnyFlatSpec with Matchers with BeforeAndAfterAll {
 
 	var cons_message: String = ""
 

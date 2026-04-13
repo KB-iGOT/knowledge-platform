@@ -1,8 +1,8 @@
 package org.sunbird.graph.nodes
 
 import java.util
-
 import org.neo4j.graphdb.Result
+import org.scalatest.RecoverMethods.recoverToSucceededIf
 import org.sunbird.cache.impl.RedisCache
 import org.sunbird.common.JsonUtils
 import org.sunbird.common.dto.{Request, Response, ResponseHandler}
@@ -11,6 +11,7 @@ import org.sunbird.graph.BaseSpec
 import org.sunbird.graph.dac.model.Node
 import org.sunbird.graph.utils.ScalaJsonUtils
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 
@@ -714,11 +715,11 @@ class TestDataNode extends BaseSpec {
         request.put("identifier", util.Arrays.asList("do_12345"))
         request.put("fields", util.Arrays.asList())
         val future: Future[List[Node]] = DataNode.search(request)
-        future map { nodeList => {
+
+        future.map { nodeList =>
             assert(nodeList.length == 1)
             assert(nodeList.head.getIdentifier.equalsIgnoreCase("do_12345"))
         }
-        } flatMap (f => f)
     }
 
     "search" should "throw Exception for invalid identifier" in {

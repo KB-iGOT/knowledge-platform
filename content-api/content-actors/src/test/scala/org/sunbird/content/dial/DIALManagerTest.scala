@@ -1,10 +1,9 @@
 package org.sunbird.content.dial
 
 import java.util
-
 import org.scalamock.matchers.Matchers
 import org.scalamock.scalatest.AsyncMockFactory
-import org.scalatest.AsyncFlatSpec
+import org.scalatest.flatspec.AnyFlatSpec
 import org.sunbird.common.{HttpUtil, JsonUtils}
 import org.sunbird.common.dto.{Request, Response}
 import org.sunbird.common.exception.{ClientException, ResourceNotFoundException, ResponseCode, ServerException}
@@ -13,7 +12,7 @@ import org.sunbird.graph.{GraphService, OntologyEngineContext}
 
 import scala.concurrent.Future
 
-class DIALManagerTest extends AsyncFlatSpec with Matchers with AsyncMockFactory {
+class DIALManagerTest extends AnyFlatSpec with Matchers with AsyncMockFactory {
 
 	implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
 	val graphDB = mock[GraphService]

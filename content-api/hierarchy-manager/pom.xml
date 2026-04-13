@@ -14,7 +14,7 @@
     <dependencies>
         <dependency>
             <groupId>org.sunbird</groupId>
-            <artifactId>graph-engine_2.11</artifactId>
+            <artifactId>graph-engine_2.12</artifactId>
             <version>1.0-SNAPSHOT</version>
             <type>jar</type>
         </dependency>
@@ -31,7 +31,7 @@
         <dependency>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_${scala.maj.version}</artifactId>
-            <version>3.1.2</version>
+            <version>3.2.18</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -39,6 +39,20 @@
             <artifactId>neo4j-bolt</artifactId>
             <version>3.5.0</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scala-library</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scalatest</groupId>
+                    <artifactId>scalatest_2.11</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scalactic</groupId>
+                    <artifactId>scalactic_2.11</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.neo4j</groupId>
@@ -83,7 +97,7 @@
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
                 <artifactId>scala-maven-plugin</artifactId>
-                <version>4.4.0</version>
+                <version>4.8.1</version>
                 <configuration>
                     <scalaVersion>${scala.version}</scalaVersion>
                     <checkMultipleScalaVersions>false</checkMultipleScalaVersions>

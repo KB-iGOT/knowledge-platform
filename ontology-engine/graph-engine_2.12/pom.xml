@@ -59,6 +59,14 @@
                     <groupId>org.scala-lang</groupId>
                     <artifactId>scala-library</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>org.scalatest</groupId>
+                    <artifactId>scalatest_2.11</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.scalactic</groupId>
+                    <artifactId>scalactic_2.11</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>

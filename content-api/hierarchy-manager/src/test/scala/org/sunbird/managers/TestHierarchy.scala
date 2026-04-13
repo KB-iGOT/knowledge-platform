@@ -8,7 +8,9 @@ import org.sunbird.common.JsonUtils
 import org.sunbird.common.dto.Request
 import org.sunbird.common.exception.ClientException
 import org.sunbird.graph.OntologyEngineContext
-import scala.collection.JavaConversions._
+import scala.concurrent.ExecutionContext.Implicits.global
+import org.scalatest.RecoverMethods.recoverToSucceededIf
+import scala.collection.JavaConverters._
 
 class TestHierarchy extends BaseSpec {
 
@@ -53,7 +55,7 @@ class TestHierarchy extends BaseSpec {
         request.put("rootId", "do_11283193441064550414")
         request.put("unitId", "do_11283193463014195215")
         request.put("children", util.Arrays.asList("do_11340096165525094411"))
-        request.put("relationalMetadata",mapAsJavaMap(Map("do_11340096165525094411" -> Map("relName" -> "Test Name RM", "keywords" -> Array("Overwriting content Keywords") ))))
+        request.put("relationalMetadata",Map("do_11340096165525094411" -> Map("relName" -> "Test Name RM", "keywords" -> Array("Overwriting content Keywords") ).asJava).asJava)
         request.put("mode","edit")
         val future = HierarchyManager.addLeafNodesToHierarchy(request)
         future.map(response => {

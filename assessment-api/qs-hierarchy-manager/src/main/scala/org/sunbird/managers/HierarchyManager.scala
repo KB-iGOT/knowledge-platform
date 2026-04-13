@@ -216,7 +216,7 @@ object HierarchyManager {
         val redisHierarchy = if(Platform.getBoolean("questionset.cache.enable", false)) RedisCache.get(hierarchyPrefix + request.get("rootId")) else ""
 
         val hierarchyFuture = if (StringUtils.isNotEmpty(redisHierarchy)) {
-            Future(mapAsJavaMap(Map("questionSet" -> JsonUtils.deserialize(redisHierarchy, classOf[java.util.Map[String, AnyRef]]))))
+            Future(Map[String, AnyRef]("questionSet" -> JsonUtils.deserialize(redisHierarchy, classOf[java.util.Map[String, AnyRef]])).asJava)
         } else getCassandraHierarchy(request)
         hierarchyFuture.map(result => {
             if (!result.isEmpty) {
@@ -429,9 +429,9 @@ object HierarchyManager {
             existingLeafNodes.map(en => {
                 leafNodeMap.get(en._1).put("index", en._2.get("index").asInstanceOf[Integer])
             })
-            filteredLeafNodes = bufferAsJavaList(childList.filter(existingLeafNode => {
+            filteredLeafNodes = childList.filter(existingLeafNode => {
                 !leafNodeIds.contains(existingLeafNode.get("identifier").asInstanceOf[String])
-            }))
+            }).asJava
             maxIndex = childMap.values.toList.map(child => child.get("index").asInstanceOf[Integer]).toList.max.asInstanceOf[Integer]
         }
         leafNodeIds.foreach(id => {
@@ -487,7 +487,7 @@ object HierarchyManager {
         hierarchy.map(hierarchy => {
             if (!hierarchy.isEmpty) {
                 if (StringUtils.isNotEmpty(hierarchy.getOrDefault("status", "").asInstanceOf[String]) && statusList.contains(hierarchy.getOrDefault("status", "").asInstanceOf[String])) {
-                    val hierarchyMap = mapAsJavaMap(hierarchy)
+                    val hierarchyMap = hierarchy.asJava
                     rootHierarchy.put("questionSet", hierarchyMap)
                     RedisCache.set(hierarchyPrefix + request.get("rootId"), JsonUtils.serialize(hierarchyMap))
                     Future(rootHierarchy)
@@ -502,8 +502,8 @@ object HierarchyManager {
                             val parentHierarchy = fetchHierarchy(request, response.get("identifier").asInstanceOf[String])
                             parentHierarchy.map(hierarchy => {
                                 if (!hierarchy.isEmpty) {
-                                    if (StringUtils.isNoneEmpty(hierarchy.getOrDefault("status", "").asInstanceOf[String]) && statusList.contains(hierarchy.getOrDefault("status", "").asInstanceOf[String]) && CollectionUtils.isNotEmpty(mapAsJavaMap(hierarchy).get("children").asInstanceOf[util.ArrayList[util.HashMap[String, AnyRef]]])) {
-                                        val bookmarkHierarchy = filterBookmarkHierarchy(mapAsJavaMap(hierarchy).get("children").asInstanceOf[util.ArrayList[util.Map[String, AnyRef]]], request.get("rootId").asInstanceOf[String])
+                                    if (StringUtils.isNoneEmpty(hierarchy.getOrDefault("status", "").asInstanceOf[String]) && statusList.contains(hierarchy.getOrDefault("status", "").asInstanceOf[String]) && CollectionUtils.isNotEmpty(hierarchy.asJava.get("children").asInstanceOf[util.ArrayList[util.HashMap[String, AnyRef]]])) {
+                                        val bookmarkHierarchy = filterBookmarkHierarchy(hierarchy.asJava.get("children").asInstanceOf[util.ArrayList[util.Map[String, AnyRef]]], request.get("rootId").asInstanceOf[String])
                                         if (!bookmarkHierarchy.isEmpty) {
                                             rootHierarchy.put("questionSet", hierarchy)
                                             RedisCache.set(hierarchyPrefix + request.get("rootId"), JsonUtils.serialize(hierarchy))
@@ -569,11 +569,11 @@ object HierarchyManager {
             if (CollectionUtils.isNotEmpty(response)) {
                 response.get(0)
             } else {
-                val nextChildren = bufferAsJavaList(children.flatMap(child => {
+                val nextChildren = children.flatMap(child => {
                     if (!child.isEmpty && CollectionUtils.isNotEmpty(child.get("children").asInstanceOf[util.List[util.Map[String, AnyRef]]]))
                         child.get("children").asInstanceOf[util.List[util.Map[String, AnyRef]]]
                     else new util.ArrayList[util.Map[String, AnyRef]]
-                }))
+                }).asJava
                 filterBookmarkHierarchy(nextChildren, bookmarkId)
             }
         } else {
@@ -585,8 +585,8 @@ object HierarchyManager {
         if (StringUtils.isNotEmpty(identifier)) {
             val parentHierarchy = fetchHierarchy(request, identifier + imgSuffix)
             parentHierarchy.map(hierarchy => {
-                if (!hierarchy.isEmpty && CollectionUtils.isNotEmpty(mapAsJavaMap(hierarchy).get("children").asInstanceOf[util.ArrayList[util.Map[String, AnyRef]]])) {
-                    val bookmarkHierarchy = filterBookmarkHierarchy(mapAsJavaMap(hierarchy).get("children").asInstanceOf[util.ArrayList[util.Map[String, AnyRef]]], request.get("rootId").asInstanceOf[String])
+                if (!hierarchy.isEmpty && CollectionUtils.isNotEmpty(hierarchy.get("children").map(_.asInstanceOf[util.ArrayList[util.Map[String, AnyRef]]]).orNull)) {
+                    val bookmarkHierarchy = filterBookmarkHierarchy(hierarchy.get("children").map(_.asInstanceOf[util.ArrayList[util.Map[String, AnyRef]]]).orNull, request.get("rootId").asInstanceOf[String])
                     if (!bookmarkHierarchy.isEmpty) {
                         bookmarkHierarchy
                     } else {
