@@ -11,7 +11,8 @@ import play.api.mvc._
 
 import java.util
 import java.util.UUID
-import scala.collection.JavaConverters._
+import scala.collection.JavaConversions._
+import scala.collection.JavaConverters
 import scala.concurrent.{ExecutionContext, Future}
 
 abstract class SearchBaseController(protected val cc: ControllerComponents)(implicit exec: ExecutionContext) extends AbstractController(cc) {
@@ -29,12 +30,12 @@ abstract class SearchBaseController(protected val cc: ControllerComponents)(impl
         val headers = request.headers.headers.groupBy(_._1).mapValues(_.map(_._2))
         val appHeaders = headers.filter(header => customHeaders.keySet.contains(header._1.toLowerCase))
                 .map(entry => (customHeaders.get(entry._1.toLowerCase()).get, entry._2.head))
-        val contextMap:  Map[String, Object]= {
+        val contextMap = {
             if(appHeaders.contains("CHANNEL_ID"))
                 appHeaders
             else appHeaders + ("CHANNEL_ID"-> DEFAULT_CHANNEL_ID)
         }
-        contextMap.toMap.asJava
+        JavaConverters.mapAsJavaMap(contextMap)
     }
 
     def getRequest(input: java.util.Map[String, AnyRef], context: java.util.Map[String, AnyRef], operation: String): org.sunbird.common.dto.Request = {
