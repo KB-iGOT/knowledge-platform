@@ -16,6 +16,7 @@ import org.sunbird.graph.dac.model.Node
 import org.sunbird.graph.utils.ScalaJsonUtils
 
 import scala.collection.JavaConversions.mapAsJavaMap
+import scala.collection.JavaConverters
 import scala.collection.JavaConverters.asJavaIterableConverter
 import scala.collection.immutable.HashMap
 import scala.concurrent.Future
@@ -50,12 +51,7 @@ class CopyManagerTest extends AnyFlatSpec with Matchers with AsyncMockFactory {
         implicit val ss = mock[StorageService]
         val request = getInvalidCopyRequest_2()
         request.getContext.put("identifier","do_1234")
-        val m = new HashMap[String, Object]()
-        m.put("identifier", "do_1234")
-
-        request.getRequest.putAll(m)
-
-        request.getRequest.putAll(m)
+        request.getRequest.putAll(JavaConverters.mapAsJavaMap(Map("identifier" -> "do_1234")))
         val exception = intercept[ClientException] {
             CopyManager.validateRequest(request)
         }
