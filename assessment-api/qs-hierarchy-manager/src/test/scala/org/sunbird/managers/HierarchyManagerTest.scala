@@ -1,13 +1,13 @@
 package org.sunbird.managers
 
 import java.util
-
 import org.sunbird.common.JsonUtils
 import org.sunbird.common.dto.Request
 import org.sunbird.common.exception.ClientException
 import org.sunbird.graph.OntologyEngineContext
 import org.sunbird.utils.HierarchyConstants
 
+import scala.collection.JavaConverters
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -74,7 +74,7 @@ class HierarchyManagerTest extends BaseSpec {
 	"addLeafNodesToHierarchy" should "add leaf node under root" in {
 		val request = new Request()
 		request.setContext(getContext(HierarchyConstants.QUESTIONSET_OBJECT_TYPE))
-		request.putAll(Map[String,Object](HierarchyConstants.ROOT_ID -> "do_obs_123", "mode" -> "edit", "children" -> List("do_textq_live_123")).asJava)
+		request.putAll(JavaConverters.mapAsJavaMap(Map(HierarchyConstants.ROOT_ID -> "do_obs_123", "mode" -> "edit", "children" -> List("do_textq_live_123").asJava)))
 		val future = HierarchyManager.addLeafNodesToHierarchy(request)
 		future.map(response => {
 			assert(response.getResponseCode.code() == 200)
@@ -89,7 +89,7 @@ class HierarchyManagerTest extends BaseSpec {
 		val request = new Request()
 		request.setContext(getContext(HierarchyConstants.QUESTIONSET_OBJECT_TYPE))
 		val branchingLogicStr = "{\"do_textq_live_123\":{\"target\":[],\"preCondition\":{\"and\":[{\"eq\":[{\"var\":\"do_textq_draft_123.response1.value\",\"type\":\"responseDeclaration\"},\"0\"]}]},\"source\":[\"do_textq_draft_123\"]}}"
-		request.putAll(Map[String,Object](HierarchyConstants.ROOT_ID -> "do_obs_with_section_123", "mode" -> "edit", "collectionId" -> "do_section_1", "children" -> List("do_textq_live_123").asJava, "branchingLogic" -> JsonUtils.deserialize(branchingLogicStr, classOf[util.HashMap[String, AnyRef]])).asJava)
+		request.putAll(JavaConverters.mapAsJavaMap(Map(HierarchyConstants.ROOT_ID -> "do_obs_with_section_123", "mode" -> "edit", "collectionId" -> "do_section_1", "children" -> List("do_textq_live_123").asJava, "branchingLogic" -> JsonUtils.deserialize(branchingLogicStr, classOf[util.HashMap[String, AnyRef]]))))
 		val future = HierarchyManager.addLeafNodesToHierarchy(request)
 		future.map(response => {
 			assert(response.getResponseCode.code() == 200)
@@ -104,9 +104,7 @@ class HierarchyManagerTest extends BaseSpec {
 		val request = new Request()
 		request.setContext(getContext(HierarchyConstants.QUESTIONSET_OBJECT_TYPE))
 		val branchingLogicStr = "{\"do_text_live_123\":{\"target\":[],\"preCondition\":{\"and\":[{\"eq\":[{\"var\":\"do_textq_draft_123.response1.value\",\"type\":\"responseDeclaration\"},\"0\"]}]},\"source\":[\"do_textq_draft_123\"]}}"
-		request.putAll(Map[String,Object](HierarchyConstants.ROOT_ID -> "do_obs_with_section_123",
-			"mode" -> "edit", "collectionId" -> "do_section_1", "children" -> List("do_textq_live_123").asJava,
-			"branchingLogic" -> JsonUtils.deserialize(branchingLogicStr, classOf[util.HashMap[String, AnyRef]])).asJava)
+		request.putAll(JavaConverters.mapAsJavaMap(Map(HierarchyConstants.ROOT_ID -> "do_obs_with_section_123", "mode" -> "edit", "collectionId" -> "do_section_1", "children" -> List("do_textq_live_123").asJava, "branchingLogic" -> JsonUtils.deserialize(branchingLogicStr, classOf[util.HashMap[String, AnyRef]]))))
 		val exception = intercept[ClientException] {
 			HierarchyManager.addLeafNodesToHierarchy(request)
 		}
@@ -118,7 +116,7 @@ class HierarchyManagerTest extends BaseSpec {
 		executeCassandraQuery(HIERARCHY_QS_3)
 		val request = new Request()
 		request.setContext(getContext(HierarchyConstants.QUESTIONSET_OBJECT_TYPE))
-		request.putAll(Map[String,Object](HierarchyConstants.ROOT_ID -> "do_obs_with_section_234", "mode" -> "edit", "collectionId" -> "do_section_1", "children" -> List("do_mcqq_draft_123")).asJava)
+		request.putAll(JavaConverters.mapAsJavaMap(Map(HierarchyConstants.ROOT_ID -> "do_obs_with_section_234", "mode" -> "edit", "collectionId" -> "do_section_1", "children" -> List("do_mcqq_draft_123").asJava)))
 		HierarchyManager.removeLeafNodesFromHierarchy(request).map(response => {
 			assert(response.getResponseCode.code() == 200)
 			val hierarchy = readFromCassandra("Select hierarchy from hierarchy_store.questionset_hierarchy where identifier='do_obs_with_section_234'")

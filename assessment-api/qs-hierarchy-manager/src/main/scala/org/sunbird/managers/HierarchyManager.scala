@@ -216,7 +216,7 @@ object HierarchyManager {
         val redisHierarchy = if(Platform.getBoolean("questionset.cache.enable", false)) RedisCache.get(hierarchyPrefix + request.get("rootId")) else ""
 
         val hierarchyFuture = if (StringUtils.isNotEmpty(redisHierarchy)) {
-            Future(Map[String, AnyRef]("questionSet" -> JsonUtils.deserialize(redisHierarchy, classOf[java.util.Map[String, AnyRef]])).asJava)
+            Future(JavaConverters.mapAsJavaMap(Map("questionSet" -> JsonUtils.deserialize(redisHierarchy, classOf[java.util.Map[String, AnyRef]]))))
         } else getCassandraHierarchy(request)
         hierarchyFuture.map(result => {
             if (!result.isEmpty) {
@@ -429,9 +429,9 @@ object HierarchyManager {
             existingLeafNodes.map(en => {
                 leafNodeMap.get(en._1).put("index", en._2.get("index").asInstanceOf[Integer])
             })
-            filteredLeafNodes = childList.filter(existingLeafNode => {
+            filteredLeafNodes = JavaConverters.bufferAsJavaList(childList.filter(existingLeafNode => {
                 !leafNodeIds.contains(existingLeafNode.get("identifier").asInstanceOf[String])
-            }).asJava
+            }))
             maxIndex = childMap.values.toList.map(child => child.get("index").asInstanceOf[Integer]).toList.max.asInstanceOf[Integer]
         }
         leafNodeIds.foreach(id => {
