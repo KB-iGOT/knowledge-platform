@@ -1,16 +1,16 @@
 package org.sunbird.content.util
 
 import java.util
-
 import org.scalamock.scalatest.AsyncMockFactory
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.sunbird.common.dto.Request
 import org.sunbird.common.exception.ClientException
 import org.sunbird.graph.OntologyEngineContext
 import org.sunbird.util.RequestUtil
 
 
-class RequestUtilTest extends FlatSpec with Matchers with AsyncMockFactory {
+class RequestUtilTest extends AnyFlatSpec with Matchers with AsyncMockFactory {
     
     
     it should "throw clientException for invalid request" in {

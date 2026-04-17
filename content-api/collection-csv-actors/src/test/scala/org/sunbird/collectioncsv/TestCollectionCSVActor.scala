@@ -2,8 +2,9 @@ package org.sunbird.collectioncsv
 
 import akka.actor.{ActorSystem, Props}
 import akka.testkit.TestKit
+import org.scalamock.matchers.Matchers
 import org.scalamock.scalatest.MockFactory
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
 import org.sunbird.cloudstore.StorageService
 import org.sunbird.collectioncsv.actors.CollectionCSVActor
 import org.sunbird.collectioncsv.util.CollectionTOCConstants
@@ -19,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.FiniteDuration
 
 
-class TestCollectionCSVActor extends FlatSpec with Matchers with MockFactory {
+class TestCollectionCSVActor extends AnyFlatSpec with Matchers with MockFactory {
 
     implicit val ec: ExecutionContext = ExecutionContext.global
     val system: ActorSystem = ActorSystem.create("system")

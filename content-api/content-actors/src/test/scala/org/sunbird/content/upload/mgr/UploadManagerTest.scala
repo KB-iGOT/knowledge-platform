@@ -1,11 +1,14 @@
 package org.sunbird.content.upload.mgr
 
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+
 import java.util
-
-import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.sunbird.graph.dac.model.Node
+import scala.concurrent.ExecutionContext.Implicits.global
 
-class UploadManagerTest extends AsyncFlatSpec with Matchers {
+
+class UploadManagerTest extends AnyFlatSpec with Matchers {
 
 	"getUploadResponse with valid node object" should "return response with artifactUrl" in {
 		val node = new Node()

@@ -14,7 +14,6 @@ import org.sunbird.kafka.client.KafkaClient
 import org.sunbird.utils.JavaJsonUtils
 
 import java.util
-import scala.collection.JavaConversions._
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
@@ -38,7 +37,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
 
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "do1234")
-        request.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        request.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "navigationMode" -> "linear",
@@ -50,7 +49,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "showHints" -> "Yes",
             "summaryType" -> "Complete",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         request.setOperation("createQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -69,7 +68,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node))
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "do1234")
-        request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+        request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> "").asJava)
         request.setOperation("readQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -90,7 +89,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node))
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "do1234")
-        request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+        request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> "").asJava)
         request.setOperation("readQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert(response.getResponseCode == ResponseCode.CLIENT_ERROR)
@@ -111,7 +110,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         val request = getQuestionSetRequest()
         request.getContext.put("identifier","do1234")
         request.getRequest.put("channel", "abc-123")
-        request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+        request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> "").asJava)
         request.setOperation("readPrivateQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -122,7 +121,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         val graphDB = mock[GraphService]
         val request = getQuestionSetRequest()
         request.getContext.put("identifier","do1234")
-        request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+        request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> "").asJava)
         request.setOperation("readPrivateQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert(response.getResponseCode == ResponseCode.CLIENT_ERROR)
@@ -145,7 +144,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         val request = getQuestionSetRequest()
         request.getContext.put("identifier","do1234")
         request.getRequest.put("channel", "abc")
-        request.putAll(mapAsJavaMap(Map("identifier" -> "do_1234", "fields" -> "")))
+        request.putAll(Map[String, Object]("identifier" -> "do_1234", "fields" -> ""). asJava)
         request.setOperation("readPrivateQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert(response.getResponseCode == ResponseCode.CLIENT_ERROR)
@@ -161,7 +160,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(nodes)).anyNumberOfTimes()
 
         val node = getNode("QuestionSet", None)
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "description" -> "Updated description",
@@ -174,12 +173,12 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "showHints" -> "Yes",
             "summaryType" -> "Complete",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         (graphDB.upsertNode(_: String, _: Node, _: Request)).expects(*, *, *).returns(Future(node))
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "do1234")
-        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.putAll(Map[String, Object]("versionKey" -> "1234", "description" -> "updated desc").asJava)
         request.setOperation("updateQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -193,7 +192,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(nodes)).anyNumberOfTimes()
 
         val node = getNode("QuestionSet", None)
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "navigationMode" -> "linear",
@@ -206,7 +205,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "summaryType" -> "Complete",
             "versionKey" -> "1234",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         (graphDB.upsertNode(_: String, _: Node, _: Request)).expects(*, *, *).returns(Future(node))
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
         (graphDB.readExternalProps(_: Request, _: List[String])).expects(*, *).returns(Future(getCassandraHierarchy())).anyNumberOfTimes
@@ -214,7 +213,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (graphDB.updateNodes(_:String, _:util.List[String], _: util.Map[String, AnyRef])).expects(*, *, *).returns(Future(Map[String, Node]().asJava)).anyNumberOfTimes
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "do1234")
-        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.putAll(Map[String, Object]("versionKey" -> "1234", "description" -> "updated desc").asJava)
         request.setOperation("reviewQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -226,7 +225,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         val graphDB = mock[GraphService]
         (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
         val node = getNode("QuestionSet", None)
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "navigationMode" -> "linear",
@@ -238,12 +237,12 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "showHints" -> "Yes",
             "summaryType" -> "Complete",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
         (graphDB.updateNodes(_: String, _: util.List[String], _: util.HashMap[String, AnyRef])).expects(*, *, *).returns(Future(new util.HashMap[String, Node]))
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "do1234")
-        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.putAll(Map[String, Object]("versionKey" -> "1234", "description" -> "updated desc").asJava)
         request.setOperation("retireQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -256,7 +255,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (oec.kafkaClient _).expects().returns(kfClient).anyNumberOfTimes()
         (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
         val node = getNode("do_11348469558523494411","QuestionSet", None)
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "navigationMode" -> "linear",
@@ -269,10 +268,10 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "summaryType" -> "Complete",
             "mimeType" -> "application/vnd.sunbird.questionset",
             "createdBy" -> "g-001",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         val nodeList = new util.ArrayList[Node]() {{
-            add(getNode("do_11348469662446387212","Question", Some(Map("visibility"-> "Parent", "createdBy"-> "g-001"))))
-            add(getNode("do_11348469662607769614","Question", Some(Map("visibility"-> "Default", "createdBy"-> "g-002"))))
+            add(getNode("do_11348469662446387212","Question", Some(Map[String, AnyRef]("visibility"-> "Parent", "createdBy"-> "g-001").asJava)))
+            add(getNode("do_11348469662607769614","Question", Some(Map[String, AnyRef]("visibility"-> "Default", "createdBy"-> "g-002").asJava)))
         }}
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
         (graphDB.getNodeByUniqueIds(_ :String, _: SearchCriteria)).expects(*, *).returns(Future(nodeList)).atLeastOnce()
@@ -280,7 +279,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (kfClient.send(_: String, _: String)).expects(*, *).once()
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "do1234")
-        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.putAll(Map[String, Object]("versionKey" -> "1234", "description" -> "updated desc").asJava)
         request.setOperation("publishQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -292,7 +291,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
         val node = getNode("QuestionSet", None)
         node.setIdentifier("do_1234")
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "navigationMode" -> "linear",
@@ -305,7 +304,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "summaryType" -> "Complete",
             "versionKey" -> "1234",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         (graphDB.upsertNode(_: String, _: Node, _: Request)).expects(*, *, *).returns(Future(node))
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).anyNumberOfTimes()
         (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(List(node).asJava)).anyNumberOfTimes()
@@ -325,7 +324,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
         val node = getNode("QuestionSet", None)
         node.setIdentifier("do_1234")
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "navigationMode" -> "linear",
@@ -338,7 +337,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "summaryType" -> "Complete",
             "versionKey" -> "1234",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         (graphDB.upsertNode(_: String, _: Node, _: Request)).expects(*, *, *).returns(Future(node))
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).anyNumberOfTimes()
         (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(List(node).asJava)).anyNumberOfTimes()
@@ -387,7 +386,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         val graphDB = mock[GraphService]
         (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
         val node = getNode("QuestionSet", None)
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "navigationMode" -> "linear",
@@ -401,7 +400,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "summaryType" -> "Complete",
             "versionKey" -> "1234",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         (graphDB.upsertNode(_: String, _: Node, _: Request)).expects(*, *, *).returns(Future(node))
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
         (graphDB.readExternalProps(_: Request, _: List[String])).expects(*, *).returns(Future(getCassandraHierarchy())).anyNumberOfTimes
@@ -412,7 +411,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
 
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "do1234")
-        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.putAll(Map[String, Object]("versionKey" -> "1234", "description" -> "updated desc").asJava)
         request.setOperation("rejectQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -455,7 +454,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
         val node = getNode("QuestionSet", None)
         node.setIdentifier("test_id")
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "description" -> "Updated description",
@@ -469,17 +468,17 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "showHints" -> "Yes",
             "summaryType" -> "Complete",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         (graphDB.upsertNode(_: String, _: Node, _: Request)).expects(*, *, *).returns(Future(node))
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
-        (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(List(node))).once()
+        (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(List(node).asJava)).once()
         val nodes: util.List[Node] = getCategoryNode()
         (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(nodes)).noMoreThanOnce()
 
         (graphDB.readExternalProps(_: Request, _: List[String])).expects(*, *).returns(Future(getCassandraHierarchy())).anyNumberOfTimes
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "test_id")
-        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.putAll(Map[String, Object]("versionKey" -> "1234", "description" -> "updated desc").asJava)
         request.setOperation("systemUpdateQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -493,7 +492,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         val imageNode = getNode("QuestionSet", None)
         node.setIdentifier("test_id")
         imageNode.setIdentifier("test_id.img")
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "description" -> "Updated description",
@@ -507,8 +506,8 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "showHints" -> "Yes",
             "summaryType" -> "Complete",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
-        imageNode.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+            "primaryCategory" -> "Practice Question Set").asJava)
+            imageNode.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "description" -> "Updated description",
@@ -522,9 +521,9 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "summaryType" -> "Complete",
             "status" -> "Draft",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
-        (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(List(node, imageNode))).once()
+        (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(List(node, imageNode).asJava)).once()
         val nodes: util.List[Node] = getCategoryNode()
         (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(nodes)).anyNumberOfTimes()
 
@@ -533,7 +532,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         (graphDB.upsertNode(_: String, _: Node, _: Request)).expects(*, *, *).returns(Future(node)).anyNumberOfTimes()
         val request = getQuestionSetRequest()
         request.getContext.put("identifier", "test_id")
-        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.putAll(Map[String, Object]("versionKey" -> "1234", "description" -> "updated desc").asJava)
         request.setOperation("systemUpdateQuestionSet")
         val response = callActor(request, Props(new QuestionSetActor()))
         assert("successful".equals(response.getParams.getStatus))
@@ -664,7 +663,7 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
     def getRootNode(): Node = {
         val node = getNode("QuestionSet", None)
         node.setIdentifier("do_1234")
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "navigationMode" -> "linear",
@@ -679,19 +678,19 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
             "mimeType" -> "application/vnd.sunbird.questionset",
             "primaryCategory" -> "Practice Question Set",
             "channel" -> "in.ekstep"
-        )))
+        ).asJava)
         node
     }
 
     def getQuestionSetNode(identifier:String): Node = {
         val node = getNode("QuestionSet", None)
         node.setIdentifier(identifier)
-        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+        node.getMetadata.putAll(Map[String, Object]("name" -> "question_1",
             "visibility" -> "Default",
             "code" -> "finemanfine",
             "versionKey" -> "1234",
             "mimeType" -> "application/vnd.sunbird.questionset",
-            "primaryCategory" -> "Practice Question Set")))
+            "primaryCategory" -> "Practice Question Set").asJava)
         node
     }
 }

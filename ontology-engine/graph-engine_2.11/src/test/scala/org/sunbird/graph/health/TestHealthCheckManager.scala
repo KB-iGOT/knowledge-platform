@@ -4,12 +4,14 @@ import org.sunbird.common.dto.Response
 import org.sunbird.common.exception.ResponseCode
 import org.sunbird.graph.BaseSpec
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
+
 
 class TestHealthCheckManager extends BaseSpec {
 
     "check health api" should "return true" in {
-        val future: Future[Response] = HealthCheckManager.checkAllSystemHealth()
+        implicit val future: Future[Response] = HealthCheckManager.checkAllSystemHealth()
         future map { response => {
             assert(ResponseCode.OK == response.getResponseCode)
             assert(response.get("healthy") == true)
@@ -18,7 +20,7 @@ class TestHealthCheckManager extends BaseSpec {
     }
 
     "check generate check with status false" should "return service unavailable map" in {
-        val check: Map[String, Any] = HealthCheckManager.generateCheck(false, "redis cache")
+        implicit val check: Map[String, Any] = HealthCheckManager.generateCheck(false, "redis cache")
         assert(Some(false) == check.get("healthy"))
         assert(Some("redis cache") == check.get("name"))
         assert(Some("503") == check.get("err"))

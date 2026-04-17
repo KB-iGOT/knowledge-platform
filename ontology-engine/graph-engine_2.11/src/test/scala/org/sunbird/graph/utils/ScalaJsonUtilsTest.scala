@@ -5,9 +5,11 @@ import java.util
 import com.fasterxml.jackson.databind.exc.{InvalidDefinitionException, MismatchedInputException}
 import org.apache.commons.lang3.StringUtils
 import org.codehaus.jackson.JsonProcessingException
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
-class ScalaJsonUtilsTest extends FlatSpec with Matchers {
+
+class ScalaJsonUtilsTest extends AnyFlatSpec with Matchers {
 
     "serializing an empty object" should "Throw InvalidDefinitionException" in {
         assertThrows[InvalidDefinitionException] { // Result type: Assertion

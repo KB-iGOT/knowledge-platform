@@ -3,18 +3,18 @@ package org.sunbird.`object`.importer
 import java.util
 import org.apache.commons.collections4.{CollectionUtils, MapUtils}
 import org.apache.commons.lang3.{BooleanUtils, StringUtils}
-import org.scalatest.AsyncFlatSpec
-import org.scalamock.matchers.Matchers
-import org.scalamock.scalatest.AsyncMockFactory
 import org.sunbird.common.{HttpUtil, JsonUtils}
 import org.sunbird.common.dto.{Request, Response, ResponseHandler}
 import org.sunbird.common.exception.ClientException
 import org.sunbird.graph.OntologyEngineContext
 import org.sunbird.kafka.client.KafkaClient
-
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalamock.scalatest.MockFactory
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.collection.JavaConverters._
 
-class ImportManagerTest extends AsyncFlatSpec with Matchers with AsyncMockFactory {
+class ImportManagerTest extends AnyFlatSpec with Matchers with MockFactory {
 
 	implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
 	val REQUEST_LIMIT = 300

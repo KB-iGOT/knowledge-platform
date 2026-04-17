@@ -1,10 +1,12 @@
 package org.sunbird.content.util
 
 import java.util
-
 import org.apache.commons.collections.MapUtils
+import org.scalactic.Prettifier.default
+import org.scalamock.matchers.Matchers
 import org.scalamock.scalatest.AsyncMockFactory
-import org.scalatest.{AsyncFlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import org.sunbird.cloud.storage.util.JSONUtils
 import org.sunbird.cloudstore.StorageService
 import org.sunbird.common.dto.{Property, Request}
@@ -14,9 +16,12 @@ import org.sunbird.graph.dac.model.Node
 import org.sunbird.graph.utils.ScalaJsonUtils
 
 import scala.collection.JavaConversions.mapAsJavaMap
+import scala.collection.JavaConverters
+import scala.collection.JavaConverters.asJavaIterableConverter
+import scala.collection.immutable.HashMap
 import scala.concurrent.Future
 
-class CopyManagerTest extends AsyncFlatSpec with Matchers with AsyncMockFactory {
+class CopyManagerTest extends AnyFlatSpec with Matchers with AsyncMockFactory {
 
     "CopyManager" should "return copied node identifier when content is copied" ignore {
         implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
@@ -46,7 +51,7 @@ class CopyManagerTest extends AsyncFlatSpec with Matchers with AsyncMockFactory 
         implicit val ss = mock[StorageService]
         val request = getInvalidCopyRequest_2()
         request.getContext.put("identifier","do_1234")
-        request.getRequest.putAll(mapAsJavaMap(Map("identifier" -> "do_1234")))
+        request.getRequest.putAll(JavaConverters.mapAsJavaMap(Map("identifier" -> "do_1234")))
         val exception = intercept[ClientException] {
             CopyManager.validateRequest(request)
         }
