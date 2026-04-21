@@ -15,8 +15,8 @@
 		<scala.maj.version>2.12</scala.maj.version>
 		<scala.version>2.12.21</scala.version>
 		<scalatest.version>3.2.18</scalatest.version>
-		<fasterxml.jackson.version>2.9.8</fasterxml.jackson.version>
-		<skipTests>true</skipTests>
+		<fasterxml.jackson.version>2.15.2</fasterxml.jackson.version>
+
 	</properties>
 	<modules>
 		<module>platform-core</module>
