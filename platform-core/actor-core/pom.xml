@@ -32,6 +32,16 @@
 			<version>${typesafe.akka.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>com.typesafe.akka</groupId>
+			<artifactId>akka-stream_${scala.maj.version}</artifactId>
+			<version>${typesafe.akka.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.typesafe.akka</groupId>
+			<artifactId>akka-protobuf_${scala.maj.version}</artifactId>
+			<version>${typesafe.akka.version}</version>
+		</dependency>
+		<dependency>
 			<groupId>org.reflections</groupId>
 			<artifactId>reflections</artifactId>
 			<version>0.9.11</version>
