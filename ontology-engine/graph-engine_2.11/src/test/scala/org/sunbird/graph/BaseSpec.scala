@@ -2,7 +2,6 @@ package org.sunbird.graph
 
 import java.io.File
 import java.util
-
 import com.datastax.driver.core.Session
 import org.apache.commons.io.FileUtils
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper
@@ -10,13 +9,15 @@ import org.neo4j.graphdb.GraphDatabaseService
 import org.neo4j.graphdb.factory.GraphDatabaseFactory
 import org.neo4j.graphdb.factory.GraphDatabaseSettings.Connector.ConnectorType
 import org.neo4j.kernel.configuration.BoltConnector
-import org.scalatest.{AsyncFlatSpec, BeforeAndAfterAll, Matchers}
+import org.scalatest.BeforeAndAfterAll
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.sunbird.cassandra.CassandraConnector
 import org.sunbird.common.Platform
 import org.sunbird.graph.dac.model.Node
 import org.sunbird.graph.schema.FrameworkMasterCategoryMap
 
-class BaseSpec extends AsyncFlatSpec with Matchers with BeforeAndAfterAll {
+class BaseSpec extends AnyFlatSpec with Matchers with BeforeAndAfterAll {
 
     var graphDb: GraphDatabaseService = null
     var session: Session = null

@@ -8,6 +8,7 @@ import org.sunbird.common.JsonUtils
 import org.sunbird.common.dto.Request
 import org.sunbird.graph.OntologyEngineContext
 import org.sunbird.utils.HierarchyConstants
+import scala.concurrent.ExecutionContext.Implicits.global
 
 class UpdateHierarchyManagerTest extends BaseSpec {
 

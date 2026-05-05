@@ -1,5 +1,7 @@
 package org.sunbird.graph.schema
 
+import org.scalactic.Prettifier.default
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import org.sunbird.graph.BaseSpec
 
 class TestObjectCategoryDefinitionMap extends BaseSpec {

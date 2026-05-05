@@ -1,18 +1,21 @@
 package org.sunbird.channel
 
-import org.scalatest.{AsyncFlatSpec, Matchers}
 import org.sunbird.common.dto.Request
 
 import java.util
 import org.apache.commons.collections.CollectionUtils
+import org.scalactic.Prettifier.default
+import org.scalamock.matchers.Matchers
 import org.scalamock.scalatest.MockFactory
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers.convertToAnyShouldWrapper
 import org.sunbird.cache.impl.RedisCache
 import org.sunbird.util.{ChannelConstants, HTTPResponse, HttpUtil}
 import org.sunbird.channel.managers.ChannelManager
-import org.sunbird.common.exception.{ClientException}
+import org.sunbird.common.exception.ClientException
 
 
-class TestChannelManager extends AsyncFlatSpec with Matchers with MockFactory {
+class TestChannelManager extends AnyFlatSpec with Matchers with MockFactory {
 
   implicit val httpUtil: HttpUtil = mock[HttpUtil]
 

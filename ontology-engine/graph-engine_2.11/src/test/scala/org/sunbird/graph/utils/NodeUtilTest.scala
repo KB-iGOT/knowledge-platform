@@ -2,13 +2,16 @@ package org.sunbird.graph.utils
 
 import java.util
 
-import org.scalatest.{FlatSpec, Matchers}
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 import org.sunbird.graph.OntologyEngineContext
 import org.sunbird.graph.dac.model.Node
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
 
 import scala.concurrent.ExecutionContext
 
-class NodeUtilTest extends FlatSpec with Matchers {
+class NodeUtilTest extends AnyFlatSpec with Matchers {
 	implicit val oec: OntologyEngineContext = new OntologyEngineContext
 	implicit  val ec: ExecutionContext = ExecutionContext.global
 
