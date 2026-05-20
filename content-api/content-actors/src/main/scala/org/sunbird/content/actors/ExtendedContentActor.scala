@@ -1561,7 +1561,9 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
   private def extractFieldsParam(request: Request): String =
     request.getRequest.getOrDefault(ContentConstants.FIELDS, "") match {
       case s: String => s
-      case _ => ""
+      case _ =>
+        logger.warn(s"[extractFieldsParam] fields param is not a String; defaulting to empty")
+        ""
     }
 
   /** Filters the content map in [[response]] to [[requestedFields]] (comma-separated),
@@ -1589,6 +1591,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
         }
         response.getResult.put(contentKey, filtered)
       case _ =>
+        logger.warn(s"[filterResponseFields] Expected Map for key '$contentKey' but got an unexpected type; skipping field filtering")
     }
     response
   }
