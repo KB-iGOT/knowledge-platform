@@ -1561,12 +1561,12 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
   private def extractFieldsParam(request: Request): String =
     request.getRequest.getOrDefault(ContentConstants.FIELDS, "") match {
       case s: String => s
-      case _         => ""
+      case _ => ""
     }
 
   /** Filters the content map in [[response]] to [[requestedFields]] (comma-separated),
-   *  or falls back to the configured enrichment field list when blank.
-   *  Always called after Redis caching so the cache entry is never mutated.
+   * or falls back to the configured enrichment field list when blank.
+   * Always called after Redis caching so the cache entry is never mutated.
    *
    * @param requestedFields Comma-separated field names from the caller's `?fields=` param, or blank for defaults
    * @param request         Used only to resolve the content key via `responseSchemaName`
@@ -1583,7 +1583,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     response.getResult.get(contentKey) match {
       case original: util.Map[_, _] =>
         val originalMap = original.asInstanceOf[util.Map[String, AnyRef]]
-        val filtered    = new util.HashMap[String, AnyRef]()
+        val filtered = new util.HashMap[String, AnyRef]()
         fieldsToRetain.foreach { field =>
           if (originalMap.containsKey(field)) filtered.put(field, originalMap.get(field))
         }
