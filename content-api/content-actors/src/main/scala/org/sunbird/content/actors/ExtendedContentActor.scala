@@ -994,14 +994,16 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           params.setStatus(org.sunbird.common.dto.ResponseParams.StatusType.successful.name())
           cachedResponse.setParams(params)
         }
-        return Future.successful(cachedResponse)
+        return Future.successful(filterResponseFields(cachedResponse, extractFieldsParam(request), request))
       } catch {
         case e: Exception =>
           logger.warn(s"[extendedRead] Cache deserialization failed for $identifier", e)
       }
     }
-    request.getRequest.put(ContentConstants.FIELDS, contentEnrichmentFields)
-    //Cache miss - perform standard content read
+    // Capture original user-supplied fields before overwriting for the Neo4j fetch
+    val originalFields: String = extractFieldsParam(request)
+    request.getRequest.put(ContentConstants.FIELDS, new util.ArrayList[String]())
+    //Cache miss - perform standard content read (fetch all fields so Redis stores the full node)
     read(request).flatMap { response =>
       //Extract content metadata from response
       val responseSchemaName: String = request.getContext.getOrDefault(ContentConstants.RESPONSE_SCHEMA_NAME, "").asInstanceOf[String]
@@ -1028,7 +1030,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           case e: Exception =>
             logger.error(s"[extendedRead] Cache set failed for $identifier", e)
         }
-        enrichedResponse
+        filterResponseFields(enrichedResponse, originalFields, request)
       }
     }.recover {
       case e: ClientException =>
@@ -1554,5 +1556,40 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
         errorMap.put(ContentConstants.ERROR, s"Failed to fetch: ${e.getMessage}")
         errorMap
     }
+  }
+
+  private def extractFieldsParam(request: Request): String =
+    request.getRequest.getOrDefault(ContentConstants.FIELDS, "") match {
+      case s: String => s
+      case _         => ""
+    }
+
+  /** Filters the content map in [[response]] to [[requestedFields]] (comma-separated),
+   *  or falls back to the configured enrichment field list when blank.
+   *  Always called after Redis caching so the cache entry is never mutated.
+   *
+   * @param requestedFields Comma-separated field names from the caller's `?fields=` param, or blank for defaults
+   * @param request         Used only to resolve the content key via `responseSchemaName`
+   */
+  private def filterResponseFields(response: Response, requestedFields: String, request: Request): Response = {
+    val fieldsToRetain: Set[String] =
+      if (StringUtils.isNotBlank(requestedFields))
+        requestedFields.split(",").map(_.trim).filter(_.nonEmpty).toSet
+      else
+        Platform.config.getStringList(ContentConstants.EXTENDED_CONTENT_ENRICHMENT_FIELDS).asScala.toSet
+    val responseSchemaName: String =
+      request.getContext.getOrDefault(ContentConstants.RESPONSE_SCHEMA_NAME, "").asInstanceOf[String]
+    val contentKey = if (StringUtils.isBlank(responseSchemaName)) ContentConstants.CONTENT else responseSchemaName
+    response.getResult.get(contentKey) match {
+      case original: util.Map[_, _] =>
+        val originalMap = original.asInstanceOf[util.Map[String, AnyRef]]
+        val filtered    = new util.HashMap[String, AnyRef]()
+        fieldsToRetain.foreach { field =>
+          if (originalMap.containsKey(field)) filtered.put(field, originalMap.get(field))
+        }
+        response.getResult.put(contentKey, filtered)
+      case _ =>
+    }
+    response
   }
 }
