@@ -8,20 +8,11 @@ object FileUploadValidator {
   private val tika = new Tika()
 
   private val blockedExtensions = Set(
-    "php",
-    "php3",
-    "php4",
-    "php5",
-    "phtml",
-    "jsp",
-    "jspx",
-    "asp",
-    "aspx",
-    "cgi",
-    "pl",
-    "sh",
-    "bat",
-    "cmd",
+    "php", "php3", "php4", "php5", "phtml",
+    "jsp", "jspx",
+    "asp", "aspx",
+    "cgi", "pl",
+    "sh", "bat", "cmd",
     "exe"
   )
 
@@ -35,13 +26,11 @@ object FileUploadValidator {
 
   def validate(file: File, metadataMimeType: String): Unit = {
 
-    require(file != null, "Uploaded file cannot be null")
-
-    // Step 1: Block dangerous extensions
+    // Extension validation
     val extension =
       Option(file.getName)
         .filter(_.contains("."))
-        .map(_.substring(file.getName.lastIndexOf('.') + 1).toLowerCase)
+        .map(_.substring(file.getName.lastIndexOf('.') + 1).toLowerCase.trim)
         .getOrElse("")
 
     if (blockedExtensions.contains(extension)) {
@@ -50,25 +39,32 @@ object FileUploadValidator {
       )
     }
 
-    // Step 2: Detect actual content type using magic bytes/content
+    // Magic-byte/content validation
     val detectedMimeType =
       Option(tika.detect(file))
         .getOrElse("")
         .toLowerCase
+        .trim
 
-    // Step 3: Validate metadata mime vs actual mime
     val expectedMimeType =
       Option(metadataMimeType)
         .getOrElse("")
         .toLowerCase
+        .trim
 
-    val allowedDetectedMimeTypes =
+    // Exact match
+    if (expectedMimeType == detectedMimeType) {
+      return
+    }
+
+    // Alias match
+    val aliases =
       mimeAliases.getOrElse(
         expectedMimeType,
-        Set(expectedMimeType)
+        Set.empty[String]
       )
 
-    if (!allowedDetectedMimeTypes.contains(detectedMimeType)) {
+    if (!aliases.contains(detectedMimeType)) {
       throw new IllegalArgumentException(
         s"Mime mismatch. Metadata=$expectedMimeType Detected=$detectedMimeType"
       )
