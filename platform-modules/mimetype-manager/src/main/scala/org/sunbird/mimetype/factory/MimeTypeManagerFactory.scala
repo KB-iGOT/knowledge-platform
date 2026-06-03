@@ -6,7 +6,6 @@ import org.sunbird.common.Platform
 import org.sunbird.mimetype.mgr.MimeTypeManager
 import org.sunbird.mimetype.mgr.impl.{ApkMimeTypeMgrImpl, AssetMimeTypeMgrImpl, CollectionMimeTypeMgrImpl, DefaultMimeTypeMgrImpl, DocumentMimeTypeMgrImpl, EcmlMimeTypeMgrImpl, H5PMimeTypeMgrImpl, HtmlMimeTypeMgrImpl, PluginMimeTypeMgrImpl, YouTubeMimeTypeMgrImpl}
 
-import scala.collection.JavaConverters.asScalaBufferConverter
 
 object MimeTypeManagerFactory {
 
@@ -28,8 +27,6 @@ object MimeTypeManagerFactory {
 		"application/vnd.android.package-archive" -> new ApkMimeTypeMgrImpl
 	)
 
-	val allowedMimeTypes = mimeTypeMgr.keySet.map(_.toLowerCase) ++ ONLINE_MIMETYPES.asScala.map(_.toLowerCase)
-
 	def getManager(objectType: String, mimeType: String): MimeTypeManager = {
 		if(ONLINE_MIMETYPES.contains(mimeType))
 			mimeTypeMgr.getOrElse(mimeType.toLowerCase(), defaultMimeTypeMgrImpl)
@@ -40,22 +37,6 @@ object MimeTypeManagerFactory {
 				mimeTypeMgr.getOrElse(mimeType.toLowerCase(), defaultMimeTypeMgrImpl)
 			else defaultMimeTypeMgrImpl
 		}
-	}
-
-	def validateMimeType(
-												metadataMimeType: String,
-		                    detectedMimeType: String
-											): Unit = {
-
-		if (!allowedMimeTypes.contains(detectedMimeType.toLowerCase))
-			throw new IllegalArgumentException(
-				s"Unsupported mime type: $detectedMimeType"
-			)
-
-		if (!metadataMimeType.equalsIgnoreCase(detectedMimeType))
-			throw new IllegalArgumentException(
-				s"Mime mismatch"
-			)
 	}
 
 }
