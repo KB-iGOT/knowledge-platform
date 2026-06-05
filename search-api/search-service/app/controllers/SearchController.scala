@@ -78,4 +78,39 @@ class SearchController @Inject()(@Named(ActorNames.SEARCH_ACTOR) searchActor: Ac
             getResult(mgr.search(internalReq, searchActor), ApiId.APPLICATION_SEARCH)
         }
     }
+
+    def ngoSearch() = loggingAction.async { implicit request =>
+        val internalReq = getRequest(ApiId.APPLICATION_NGO_SEARCH)
+        val requestMap: java.util.Map[String, Any] = internalReq.getRequest.asInstanceOf[util.Map[String, Any]]
+
+        // Disable secure-settings so NGO content is visible
+        requestMap.put(SearchConstants.isSecureSettingsDisabled, true)
+
+        setHeaderContext(internalReq)
+
+        // Obtain (or create) the filters map from the incoming request
+        // Preserve all caller-supplied filters as-is
+        val filters = internalReq.getRequest
+            .getOrDefault(SearchConstants.filters, new java.util.HashMap[String, Object]())
+            .asInstanceOf[java.util.Map[String, Object]]
+
+
+        // Block private-content requests (same guard as searchV4 / search)
+        val visibilityObject = filters.getOrDefault("visibility", "")
+        var visibility: util.List[String] = null
+        if (visibilityObject != null) {
+            if (visibilityObject.isInstanceOf[util.ArrayList[_]])
+                visibility = visibilityObject.asInstanceOf[util.ArrayList[String]]
+            else if (visibilityObject.isInstanceOf[String])
+                visibility = util.Arrays.asList(visibilityObject.asInstanceOf[String])
+        }
+
+        if (visibility != null && visibility.contains("Private")) {
+            getErrorResponse(ApiId.APPLICATION_NGO_SEARCH, apiVersion,
+                SearchConstants.ERR_ACCESS_DENIED, "Cannot access private content through NGO search api")
+        } else {
+            internalReq.getContext.put(SearchConstants.setDefaultVisibility, "true")
+            getResult(mgr.search(internalReq, searchActor), ApiId.APPLICATION_NGO_SEARCH)
+        }
+    }
 }

@@ -7,4 +7,5 @@ object ApiId {
 	final val APPLICATION_SEARCH = "api.search-service.search"
 	final val APPLICATION_PRIVATE_SEARCH = "api.search-service.private.search"
 	final val APPLICATION_COUNT = "api.search-service.count"
+	final val APPLICATION_NGO_SEARCH = "api.search-service.ngo.search"
 }
