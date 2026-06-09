@@ -3,48 +3,76 @@ package org.sunbird.content.upload.mgr.validator
 import java.net.URI
 
 import org.apache.commons.lang3.StringUtils
+import org.slf4j.LoggerFactory
 import org.sunbird.common.Platform
 
 object ArtifactUrlValidator {
 
-  private lazy val allowedDomains: Set[String] =
-    Platform.config
+  private val logger = LoggerFactory.getLogger(getClass)
+
+  private lazy val allowedDomains: Set[String] = {
+    val domains = Platform.config
       .getStringList("content.artifact.url.allowed.domains")
       .toArray
       .map(_.toString.toLowerCase.trim)
       .toSet
 
+    logger.info(s"Allowed artifact domains loaded: $domains")
+    domains
+  }
+
   def isValid(url: String): Boolean = {
 
-    if (StringUtils.isBlank(url))
+    logger.info(s"Validating artifactUrl: [$url]")
+
+    if (StringUtils.isBlank(url)) {
+      logger.warn("artifactUrl is blank")
       return false
+    }
 
     try {
       val uri = new URI(url.trim)
 
-      val scheme =
-        Option(uri.getScheme)
-          .map(_.toLowerCase)
-          .getOrElse("")
+      val scheme = Option(uri.getScheme)
+        .map(_.toLowerCase)
+        .getOrElse("")
 
-      val host =
-        Option(uri.getHost)
-          .map(_.toLowerCase)
-          .getOrElse("")
+      val host = Option(uri.getHost)
+        .map(_.toLowerCase)
+        .getOrElse("")
 
-      if (scheme != "https")
+      logger.info(s"Parsed URL -> scheme: [$scheme], host: [$host]")
+
+      if (scheme != "https") {
+        logger.warn(s"Rejected URL due to invalid scheme: $scheme")
         return false
+      }
 
-      isAllowedHost(host)
+      val isAllowed = isAllowedHost(host)
+
+      logger.info(
+        s"Host validation result: host=[$host], allowed=[$isAllowed]"
+      )
+
+      isAllowed
 
     } catch {
-      case _: Exception => false
+      case ex: Exception =>
+        logger.error(s"Error while validating artifactUrl: [$url]", ex)
+        false
     }
   }
 
   private def isAllowedHost(host: String): Boolean = {
-    allowedDomains.exists { domain =>
+
+    val matchedDomain = allowedDomains.find { domain =>
       host == domain || host.endsWith("." + domain)
     }
+
+    logger.info(
+      s"Host [$host] matched against domain: ${matchedDomain.getOrElse("NONE")}"
+    )
+
+    matchedDomain.isDefined
   }
 }
