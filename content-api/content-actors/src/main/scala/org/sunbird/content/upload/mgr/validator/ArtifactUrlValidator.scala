@@ -9,8 +9,8 @@ import org.sunbird.content.util.ContentConstants
 object ArtifactUrlValidator {
 
   private val logger = LoggerFactory.getLogger(getClass)
-  private val allowedDomains: Set[String] = Platform.config
-    .getStringList(ContentConstants.CONTENT_ARTIFACT_URL_ALLOWED_DOMAINS)
+  private val allowedDomains: Set[String] = Platform
+    .getStringList(ContentConstants.CONTENT_ARTIFACT_URL_ALLOWED_DOMAINS, java.util.Arrays.asList("karmayogibharat.net"))
     .toArray
     .map(_.toString.toLowerCase.trim)
     .toSet
