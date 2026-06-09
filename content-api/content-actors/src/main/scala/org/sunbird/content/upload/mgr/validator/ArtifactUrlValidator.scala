@@ -9,7 +9,7 @@ object ArtifactUrlValidator {
 
   private lazy val allowedDomains: Set[String] =
     Platform.config
-      .getStringList("artifact.url.allowed.domains")
+      .getStringList("content.artifact.url.allowed.domains")
       .toArray
       .map(_.toString.toLowerCase.trim)
       .toSet
