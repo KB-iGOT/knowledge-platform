@@ -1,25 +1,19 @@
 package org.sunbird.content.upload.mgr.validator
 
 import java.net.URI
-
 import org.apache.commons.lang3.StringUtils
 import org.slf4j.LoggerFactory
 import org.sunbird.common.Platform
+import org.sunbird.content.util.ContentConstants
 
 object ArtifactUrlValidator {
 
   private val logger = LoggerFactory.getLogger(getClass)
-
-  private lazy val allowedDomains: Set[String] = {
-    val domains = Platform.config
-      .getStringList("content.artifact.url.allowed.domains")
-      .toArray
-      .map(_.toString.toLowerCase.trim)
-      .toSet
-
-    logger.info(s"Allowed artifact domains loaded: $domains")
-    domains
-  }
+  private val allowedDomains: Set[String] = Platform.config
+    .getStringList(ContentConstants.CONTENT_ARTIFACT_URL_ALLOWED_DOMAINS)
+    .toArray
+    .map(_.toString.toLowerCase.trim)
+    .toSet
 
   def isValid(url: String): Boolean = {
 
