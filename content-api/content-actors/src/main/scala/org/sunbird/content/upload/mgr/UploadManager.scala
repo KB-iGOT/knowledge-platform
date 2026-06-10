@@ -41,7 +41,7 @@ object UploadManager {
 		try {
 			FileUploadValidator.validate(file, mimeType)
 		} catch {
-			case ex: ClientException =>
+			case ex: IllegalArgumentException =>
 				return Future.successful(
 					ResponseHandler.ERROR(
 						ResponseCode.CLIENT_ERROR,
