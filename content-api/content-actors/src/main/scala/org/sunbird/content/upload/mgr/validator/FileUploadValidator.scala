@@ -64,10 +64,68 @@ object FileUploadValidator {
         Set.empty[String]
       )
 
+    if (detectedMimeType == "image/svg+xml") {
+      validateSvg(file)
+    }
+
     if (!aliases.contains(detectedMimeType)) {
       throw new IllegalArgumentException(
         s"Mime mismatch. Metadata=$expectedMimeType Detected=$detectedMimeType"
       )
+    }
+  }
+
+  private def validateSvg(file: File): Unit = {
+
+    val svg = scala.xml.XML.loadFile(file)
+
+    val dangerousTags = Set(
+      "script",
+      "foreignObject",
+      "iframe",
+      "object",
+      "embed"
+    ).map(_.toLowerCase)
+
+    svg.descendant.foreach {
+
+      case elem: scala.xml.Elem =>
+
+        val tagName = elem.label.toLowerCase
+
+        // Block dangerous tags
+        if (dangerousTags.contains(tagName)) {
+          throw new IllegalArgumentException(
+            s"Unsafe SVG element detected: $tagName"
+          )
+        }
+
+        // Block dangerous attributes
+        elem.attributes.asAttrMap.foreach {
+          case (name, value) =>
+
+            val attrName = name.toLowerCase
+            val attrValue = value.toLowerCase
+
+            // onload, onclick, onerror...
+            if (attrName.startsWith("on")) {
+              throw new IllegalArgumentException(
+                s"Unsafe SVG attribute detected: $name"
+              )
+            }
+
+            // javascript:, vbscript:
+            if (
+              attrValue.contains("javascript:") ||
+                attrValue.contains("vbscript:")
+            ) {
+              throw new IllegalArgumentException(
+                s"Unsafe SVG URI detected"
+              )
+            }
+        }
+
+      case _ =>
     }
   }
 }
