@@ -62,9 +62,9 @@ object ArtifactUrlValidator {
     val matchedDomain = allowedDomains.find { domain =>
       host == domain || host.endsWith("." + domain)
     }
-    logger.info(s"Allowed domains configured: ${allowedDomains.mkString(", ")}")
+    logger.warn(s"Allowed domains configured: ${allowedDomains.mkString(", ")}")
 
-    logger.info(
+    logger.warn(
       s"Host [$host] matched against domain: ${matchedDomain.getOrElse("NONE")}"
     )
 
