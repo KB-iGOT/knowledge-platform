@@ -61,7 +61,7 @@ object FileUploadValidator {
 
     // SVG Security Validation MUST happen BEFORE return
     if (detectedMimeType == "image/svg+xml") {
-      logger.info(s"Running SVG security validation for ${file.getName}")
+      logger.warn(s"Running SVG security validation for ${file.getName}")
       validateSvg(file)
     }
 
@@ -162,7 +162,7 @@ object FileUploadValidator {
       }
     }
 
-    logger.info(
+    logger.warn(
       s"SVG security validation successful for ${file.getName}"
     )
   }
