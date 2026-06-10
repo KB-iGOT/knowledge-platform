@@ -42,7 +42,6 @@ object UploadManager {
 			FileUploadValidator.validate(file, mimeType)
 		} catch {
 			case ex: Exception =>
-				System.out.println("File validation failed with error: " + ex.getMessage)
 				return Future.successful(
 					ResponseHandler.ERROR(
 						ResponseCode.CLIENT_ERROR,
