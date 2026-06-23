@@ -118,4 +118,6 @@ object ApiId {
 	val RETIREMENT_STATUS_V1 = "api.content.v1.retirement.status"
 
 	val EXTENDED_READ_CONTENT = "api.extended.content.read"
+
+	val UPDATE_CONTENT_DURATION = "api.update.content.duration"
 }

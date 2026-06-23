@@ -109,6 +109,7 @@ GET     /content/v1/retirement/validate/:identifier controllers.v4.ExtendedConte
 POST   /content/v1/retirement/request/decide       controllers.v4.ExtendedContentController.decideRetirementRequest
 POST   /content/v1/retirement/status               controllers.v4.ExtendedContentController.getRetirementStatus
 GET       /content/v1/extended/read/:identifier    controllers.v4.ExtendedContentController.extendedRead(identifier:String, mode:Option[String], fields:Option[String])
+POST   /content/v4/video/duration                  controllers.v4.ContentController.getVideoDuration
 # App v4 APIs
 POST      /app/v4/register                          controllers.v4.AppController.register
 PATCH     /app/v4/update/:identifier                controllers.v4.AppController.update(identifier:String)

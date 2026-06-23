@@ -249,5 +249,15 @@ class ContentController @Inject()(@Named(ActorNames.CONTENT_ACTOR) contentActor:
         getResult(ApiId.UPDATE_REVIEW_STATUS_ML_CONTENT, contentActor, contentRequest, version = apiVersion)
     }
 
+    def getVideoDuration() = Action.async { implicit request =>
+        val headers = commonHeaders()
+        val body = requestBody()
+        val content = body.getOrDefault(schemaName, new java.util.HashMap()).asInstanceOf[java.util.Map[String, Object]]
+        content.putAll(headers)
+        val contentRequest = getRequest(content, headers, "getVideoDuration")
+        setRequestContext(contentRequest, version, objectType, schemaName)
+        getResult(ApiId.UPDATE_CONTENT_DURATION, contentActor, contentRequest, version = apiVersion)
+    }
+
 
 }
