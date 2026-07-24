@@ -837,6 +837,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     })
   }
   private val COURSE_ASSESSMENT_CATEGORY = "Course Assessment"
+  private val PRACTICE_QUESTION_SET_CATEGORY = "Practice Question Set"
 
   def syncDuration(request: Request): Future[Response] = {
     val courseId = request.getContext.get(ContentConstants.IDENTIFIER).asInstanceOf[String]
@@ -847,10 +848,10 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     val courseReadReq = new Request()
     courseReadReq.setContext(
       new util.HashMap[String, AnyRef]() {{
-        put("graph_id", "domain")
-        put("version", "1.0")
-        put("objectType", ContentConstants.CONTENT_OBJECT_TYPE)
-        put("schemaName", ContentConstants.CONTENT_SCHEMA_NAME)
+        put(ContentConstants.GRAPH_ID, "domain")
+        put(ContentConstants.VERSION, "1.0")
+        put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+        put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
       }}
     )
     courseReadReq.put(ContentConstants.IDENTIFIER, courseId)
@@ -874,10 +875,10 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             val readReq = new Request()
             readReq.setContext(
               new util.HashMap[String, AnyRef]() {{
-                put("graph_id", "domain")
-                put("version", "1.0")
-                put("objectType", ContentConstants.CONTENT_OBJECT_TYPE)
-                put("schemaName", ContentConstants.CONTENT_SCHEMA_NAME)
+                put(ContentConstants.GRAPH_ID, "domain")
+                put(ContentConstants.VERSION, "1.0")
+                put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+                put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
               }}
             )
             readReq.put(ContentConstants.IDENTIFIER, identifier)
@@ -889,13 +890,22 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
         val totalDuration = nodes.foldLeft(0.0) { (sum, node) =>
           val nodeMetadata = node.getMetadata
           val primaryCategory = Option(nodeMetadata.get(ContentConstants.PRIMARY_CATEGORY)).map(_.toString).getOrElse("")
+          def readDoubleField(field: String): Option[Double] =
+            Option(nodeMetadata.get(field)).flatMap(x => Try(x.toString.toDouble).toOption)
           val duration = primaryCategory match {
             case ContentConstants.LEARNING_RESOURCE =>
-              Option(nodeMetadata.get("duration")).flatMap(x => Try(x.toString.toDouble).toOption).getOrElse(0.0)
-            case COURSE_ASSESSMENT_CATEGORY =>
-              Option(nodeMetadata.get("expectedDuration")).flatMap(x => Try(x.toString.toDouble).toOption).getOrElse(0.0)
+              readDoubleField(ContentConstants.DURATION).getOrElse(0.0)
+            case COURSE_ASSESSMENT_CATEGORY | PRACTICE_QUESTION_SET_CATEGORY =>
+              readDoubleField(ContentConstants.EXPECTED_DURATION).getOrElse(0.0)
             case _ =>
-              0.0
+              val fallback = readDoubleField(ContentConstants.DURATION)
+                .orElse(readDoubleField(ContentConstants.EXPECTED_DURATION))
+                .getOrElse(0.0)
+              logger.warn(
+                s"[DURATION-SYNC] Unrecognized primaryCategory='$primaryCategory' " +
+                s"for nodeId=${node.getIdentifier}; using fallback duration=$fallback"
+              )
+              fallback
           }
           logger.info(s"Node=${node.getIdentifier}, category=$primaryCategory, duration=$duration")
           sum + duration
@@ -908,27 +918,27 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
         logger.info(s"Calculated duration = $durationStr")
         // ---------------- UPDATE REQUEST ----------------
         val updatePayload = new util.HashMap[String, AnyRef]() {{
-          put("identifier", courseId)
-          put("versionKey", metadata.get("versionKey"))
-          put("duration", durationStr)
+          put(ContentConstants.IDENTIFIER, courseId)
+          put(ContentConstants.VERSION_KEY, metadata.get(ContentConstants.VERSION_KEY))
+          put(ContentConstants.DURATION, durationStr)
         }}
         val updateReq = new Request()
         updateReq.setOperation("systemUpdate")
         updateReq.setContext(
           new util.HashMap[String, AnyRef]() {{
-            put("graph_id", "domain")
-            put("version", "1.0")
-            put("objectType", "Collection")
-            put("schemaName", "collection")
-            put("identifier", courseId)
+            put(ContentConstants.GRAPH_ID, "domain")
+            put(ContentConstants.VERSION, "1.0")
+            put(ContentConstants.OBJECT_TYPE, "Collection")
+            put(ContentConstants.SCHEMA_NAME, "collection")
+            put(ContentConstants.IDENTIFIER, courseId)
             put("skipValidation", Boolean.box(true))
           }}
         )
         updateReq.setRequest(updatePayload)
         systemUpdate(updateReq).map { _ =>
           ResponseHandler.OK
-            .put("identifier", courseId)
-            .put("duration", durationStr)
+            .put(ContentConstants.IDENTIFIER, courseId)
+            .put(ContentConstants.DURATION, durationStr)
         }
       }
     }
@@ -945,17 +955,17 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     val resourceReadReq = new Request()
     resourceReadReq.setContext(
       new util.HashMap[String, AnyRef]() {{
-        put("graph_id", "domain")
-        put("version", "1.0")
-        put("objectType", ContentConstants.CONTENT_OBJECT_TYPE)
-        put("schemaName", ContentConstants.CONTENT_SCHEMA_NAME)
+        put(ContentConstants.GRAPH_ID, "domain")
+        put(ContentConstants.VERSION, "1.0")
+        put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+        put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
       }}
     )
     resourceReadReq.put(ContentConstants.IDENTIFIER, resourceDoId)
     resourceReadReq.put(ContentConstants.MODE, "read")
 
     DataNode.read(resourceReadReq).flatMap { resourceNode =>
-      val versionKey = resourceNode.getMetadata.get("versionKey")
+      val versionKey = resourceNode.getMetadata.get(ContentConstants.VERSION_KEY)
       val storageKey = deriveCloudStorageKey(videoUrl)
 
       fetchVideoDurationSeconds(videoUrl).flatMap { durationSeconds =>
@@ -964,36 +974,36 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           logger.warn(s"[REPLACE-VIDEO] resourceDoId=$resourceDoId duration could not be determined, defaulting to 0")
 
         val updatePayload = new util.HashMap[String, AnyRef]() {{
-          put("identifier", resourceDoId)
-          put("versionKey", versionKey)
-          put("previewUrl", videoUrl)
-          put("artifactUrl", videoUrl)
-          put("downloadUrl", videoUrl)
-          put("cloudStorageKey", storageKey)
-          put("s3Key", storageKey)
-          put("duration", durationStr)
+          put(ContentConstants.IDENTIFIER, resourceDoId)
+          put(ContentConstants.VERSION_KEY, versionKey)
+          put(ContentConstants.PREVIEW_URL, videoUrl)
+          put(ContentConstants.ARTIFACT_URL, videoUrl)
+          put(ContentConstants.DOWNLOAD_URL, videoUrl)
+          put(ContentConstants.CLOUD_STORAGE_KEY, storageKey)
+          put(ContentConstants.S3_KEY, storageKey)
+          put(ContentConstants.DURATION, durationStr)
         }}
         val updateReq = new Request()
         updateReq.setOperation("systemUpdate")
         updateReq.setContext(
           new util.HashMap[String, AnyRef]() {{
-            put("graph_id", "domain")
-            put("version", "1.0")
-            put("objectType", ContentConstants.CONTENT_OBJECT_TYPE)
-            put("schemaName", ContentConstants.CONTENT_SCHEMA_NAME)
-            put("identifier", resourceDoId)
+            put(ContentConstants.GRAPH_ID, "domain")
+            put(ContentConstants.VERSION, "1.0")
+            put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+            put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
+            put(ContentConstants.IDENTIFIER, resourceDoId)
             put("skipValidation", Boolean.box(true))
           }}
         )
         updateReq.setRequest(updatePayload)
         systemUpdate(updateReq).flatMap { _ =>
           val hierarchyUpdates = new util.HashMap[String, AnyRef]() {{
-            put("previewUrl", videoUrl)
-            put("artifactUrl", videoUrl)
-            put("downloadUrl", videoUrl)
-            put("cloudStorageKey", storageKey)
-            put("s3Key", storageKey)
-            put("duration", durationStr)
+            put(ContentConstants.PREVIEW_URL, videoUrl)
+            put(ContentConstants.ARTIFACT_URL, videoUrl)
+            put(ContentConstants.DOWNLOAD_URL, videoUrl)
+            put(ContentConstants.CLOUD_STORAGE_KEY, storageKey)
+            put(ContentConstants.S3_KEY, storageKey)
+            put(ContentConstants.DURATION, durationStr)
           }}
           val hierarchySyncFuture =
             if (StringUtils.isNotBlank(contentDoId))
@@ -1006,7 +1016,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
             ResponseHandler.OK
               .put("resourceDoId", resourceDoId)
               .put("contentDoId", contentDoId)
-              .put("duration", durationStr)
+              .put(ContentConstants.DURATION, durationStr)
           }
         }
       }
@@ -1017,10 +1027,10 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     val hierarchyReq = new Request()
     hierarchyReq.setContext(
       new util.HashMap[String, AnyRef]() {{
-        put("graph_id", "domain")
-        put("version", "1.0")
-        put("objectType", "Collection")
-        put("schemaName", "collection")
+        put(ContentConstants.GRAPH_ID, "domain")
+        put(ContentConstants.VERSION, "1.0")
+        put(ContentConstants.OBJECT_TYPE, "Collection")
+        put(ContentConstants.SCHEMA_NAME, "collection")
       }}
     )
 

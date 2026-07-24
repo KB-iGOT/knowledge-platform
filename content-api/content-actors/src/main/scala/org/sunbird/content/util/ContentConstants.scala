@@ -13,6 +13,12 @@ object ContentConstants {
     val RESPONSE_SCHEMA_NAME: String = "responseSchemaName"
     val SCHEMA_VERSION: String = "1.0"
     val ARTIFACT_URL: String = "artifactUrl"
+    val PREVIEW_URL: String = "previewUrl"
+    val DOWNLOAD_URL: String = "downloadUrl"
+    val CLOUD_STORAGE_KEY: String = "cloudStorageKey"
+    val S3_KEY: String = "s3Key"
+    val DURATION: String = "duration"
+    val EXPECTED_DURATION: String = "expectedDuration"
     val IDENTIFIER: String = "identifier"
     val MODE: String = "mode"
     val COLLECTION_MIME_TYPE: String = "application/vnd.ekstep.content-collection"
@@ -219,4 +225,5 @@ object ContentConstants {
     val BP_BATCH_STATS_CACHE_INDEX = "bp.batch.stats.cache.index"
     val BP_BATCH_STATS_PIPELINE_CHUNK_SIZE = "bp.batch.stats.pipeline.chunk.size"
     val CONTENT_ARTIFACT_URL_ALLOWED_DOMAINS = "content.artifact.url.allowed.domains"
+    val GRAPH_ID = "graph_id"
 }
