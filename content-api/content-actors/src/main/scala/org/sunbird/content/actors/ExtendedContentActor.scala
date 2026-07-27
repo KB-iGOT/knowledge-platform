@@ -34,6 +34,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
 import java.time.{LocalDate, ZonedDateTime}
+import scala.sys.process._
 
 class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
@@ -835,6 +836,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       ResponseHandler.OK.put("identifier", identifier).put("status", "success")
     })
   }
+
   private val COURSE_ASSESSMENT_CATEGORY = "Course Assessment"
   private val PRACTICE_QUESTION_SET_CATEGORY = "Practice Question Set"
 
