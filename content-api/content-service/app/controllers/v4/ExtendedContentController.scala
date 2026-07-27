@@ -102,4 +102,27 @@ class ExtendedContentController @Inject()(@Named(ActorNames.EXTENDED_CONTENT_ACT
     getResult(ApiId.EXTENDED_READ_CONTENT, contentActor, readRequest, true)
   }
 
+  def syncDuration(identifier: String) = Action.async { implicit request =>
+    if (StringUtils.isBlank(identifier)) {
+      throw new ClientException(ContentConstants.ERR_INVALID_CONTENT_ID, ContentConstants.ERR_CONTENT_ID_MISSING)
+    }
+    val headers = commonReadHeaders()
+    val content = new java.util.HashMap().asInstanceOf[java.util.Map[String, Object]]
+    content.putAll(headers)
+    val syncRequest = getRequest(content, headers, "syncDuration")
+    setRequestContext(syncRequest, version, objectType, schemaName)
+    syncRequest.getContext.put("identifier", identifier)
+    getResult(ApiId.DURATION_SYNC, contentActor, syncRequest)
+  }
+
+  def replaceVideo() = Action.async { implicit request =>
+    val headers = commonHeaders()
+    val body = requestBody()
+    val content = body.getOrDefault("content", new java.util.HashMap()).asInstanceOf[java.util.Map[String, Object]]
+    content.putAll(headers)
+    val replaceRequest = getRequest(content, headers, "replaceVideo")
+    setRequestContext(replaceRequest, version, objectType, schemaName)
+    getResult(ApiId.REPLACE_VIDEO, contentActor, replaceRequest)
+  }
+
 }

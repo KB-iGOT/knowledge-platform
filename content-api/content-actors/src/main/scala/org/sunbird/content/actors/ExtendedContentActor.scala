@@ -34,6 +34,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
 import java.time.{LocalDate, ZonedDateTime}
+import scala.sys.process._
 
 class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
@@ -73,6 +74,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       case "isRetirementScheduled" => isRetirementScheduled(request)
       case "decideRetirementRequest" => decideRetirementRequest(request)
       case "getRetirementStatus" => getRetirementStatus(request)
+      case "syncDuration" => syncDuration(request)
+      case "replaceVideo" => replaceVideo(request)
       case _ => ERROR(request.getOperation)
     }
   }
@@ -832,6 +835,285 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       }
       ResponseHandler.OK.put("identifier", identifier).put("status", "success")
     })
+  }
+  private val COURSE_ASSESSMENT_CATEGORY = "Course Assessment"
+  private val PRACTICE_QUESTION_SET_CATEGORY = "Practice Question Set"
+
+  def syncDuration(request: Request): Future[Response] = {
+    val courseId = request.getContext.get(ContentConstants.IDENTIFIER).asInstanceOf[String]
+    if (StringUtils.isBlank(courseId))
+      throw new ClientException(ContentConstants.ERR_INVALID_CONTENT_ID, ContentConstants.ERR_CONTENT_ID_MISSING)
+    logger.info(s"[DURATION-SYNC] Started for courseId=$courseId")
+    // ---------------- COURSE READ ----------------
+    val courseReadReq = new Request()
+    courseReadReq.setContext(
+      new util.HashMap[String, AnyRef]() {{
+        put(ContentConstants.GRAPH_ID, "domain")
+        put(ContentConstants.VERSION, "1.0")
+        put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+        put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
+      }}
+    )
+    courseReadReq.put(ContentConstants.IDENTIFIER, courseId)
+    courseReadReq.put(ContentConstants.MODE, "read")
+    DataNode.read(courseReadReq).flatMap { courseNode =>
+      val metadata = courseNode.getMetadata
+      val leafNodes: List[String] =
+        Option(metadata.get("leafNodes")) match {
+          case Some(list: util.List[_]) =>
+            list.asScala.map(_.toString).toList
+          case Some(arr: Array[_]) =>
+            arr.map(_.toString).toList
+          case _ =>
+            List.empty[String]
+        }
+      logger.info(s"Leaf nodes : $leafNodes")
+      // ---------------- READ ALL LEAF NODES ----------------
+      val leafReadFuture =
+        Future.sequence {
+          leafNodes.map { identifier =>
+            val readReq = new Request()
+            readReq.setContext(
+              new util.HashMap[String, AnyRef]() {{
+                put(ContentConstants.GRAPH_ID, "domain")
+                put(ContentConstants.VERSION, "1.0")
+                put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+                put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
+              }}
+            )
+            readReq.put(ContentConstants.IDENTIFIER, identifier)
+            readReq.put(ContentConstants.MODE, "read")
+            DataNode.read(readReq)
+          }
+        }
+      leafReadFuture.flatMap { nodes =>
+        val totalDuration = nodes.foldLeft(0.0) { (sum, node) =>
+          val nodeMetadata = node.getMetadata
+          val primaryCategory = Option(nodeMetadata.get(ContentConstants.PRIMARY_CATEGORY)).map(_.toString).getOrElse("")
+          def readDoubleField(field: String): Option[Double] =
+            Option(nodeMetadata.get(field)).flatMap(x => Try(x.toString.toDouble).toOption)
+          val duration = primaryCategory match {
+            case ContentConstants.LEARNING_RESOURCE =>
+              readDoubleField(ContentConstants.DURATION).getOrElse(0.0)
+            case COURSE_ASSESSMENT_CATEGORY | PRACTICE_QUESTION_SET_CATEGORY =>
+              readDoubleField(ContentConstants.EXPECTED_DURATION).getOrElse(0.0)
+            case _ =>
+              val fallback = readDoubleField(ContentConstants.DURATION)
+                .orElse(readDoubleField(ContentConstants.EXPECTED_DURATION))
+                .getOrElse(0.0)
+              logger.warn(
+                s"[DURATION-SYNC] Unrecognized primaryCategory='$primaryCategory' " +
+                s"for nodeId=${node.getIdentifier}; using fallback duration=$fallback"
+              )
+              fallback
+          }
+          logger.info(s"Node=${node.getIdentifier}, category=$primaryCategory, duration=$duration")
+          sum + duration
+        }
+        val durationStr =
+          if (totalDuration == totalDuration.toLong)
+            totalDuration.toLong.toString
+          else
+            totalDuration.toString
+        logger.info(s"Calculated duration = $durationStr")
+        // ---------------- UPDATE REQUEST ----------------
+        val updatePayload = new util.HashMap[String, AnyRef]() {{
+          put(ContentConstants.IDENTIFIER, courseId)
+          put(ContentConstants.VERSION_KEY, metadata.get(ContentConstants.VERSION_KEY))
+          put(ContentConstants.DURATION, durationStr)
+        }}
+        val updateReq = new Request()
+        updateReq.setOperation("systemUpdate")
+        updateReq.setContext(
+          new util.HashMap[String, AnyRef]() {{
+            put(ContentConstants.GRAPH_ID, "domain")
+            put(ContentConstants.VERSION, "1.0")
+            put(ContentConstants.OBJECT_TYPE, "Collection")
+            put(ContentConstants.SCHEMA_NAME, "collection")
+            put(ContentConstants.IDENTIFIER, courseId)
+            put("skipValidation", Boolean.box(true))
+          }}
+        )
+        updateReq.setRequest(updatePayload)
+        systemUpdate(updateReq).map { _ =>
+          ResponseHandler.OK
+            .put(ContentConstants.IDENTIFIER, courseId)
+            .put(ContentConstants.DURATION, durationStr)
+        }
+      }
+    }
+  }
+
+  def replaceVideo(request: Request): Future[Response] = {
+    val resourceDoId = Option(request.get("resourceDoId")).map(_.toString.trim).getOrElse("")
+    val contentDoId = Option(request.get("contentDoId")).map(_.toString.trim).getOrElse("")
+    val videoUrl = Option(request.get("videoUrl")).map(_.toString.trim).getOrElse("")
+    if (StringUtils.isBlank(resourceDoId) || StringUtils.isBlank(videoUrl))
+      throw new ClientException(ContentConstants.ERR_INVALID_REQUEST, "resourceDoId and videoUrl are required")
+    logger.info(s"[REPLACE-VIDEO] Started for resourceDoId=$resourceDoId contentDoId=$contentDoId videoUrl=$videoUrl")
+
+    val resourceReadReq = new Request()
+    resourceReadReq.setContext(
+      new util.HashMap[String, AnyRef]() {{
+        put(ContentConstants.GRAPH_ID, "domain")
+        put(ContentConstants.VERSION, "1.0")
+        put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+        put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
+      }}
+    )
+    resourceReadReq.put(ContentConstants.IDENTIFIER, resourceDoId)
+    resourceReadReq.put(ContentConstants.MODE, "read")
+
+    DataNode.read(resourceReadReq).flatMap { resourceNode =>
+      val versionKey = resourceNode.getMetadata.get(ContentConstants.VERSION_KEY)
+      val storageKey = deriveCloudStorageKey(videoUrl)
+
+      fetchVideoDurationSeconds(videoUrl).flatMap { durationSeconds =>
+        val durationStr = durationSeconds.map(_.toString).getOrElse("0")
+        if (durationSeconds.isEmpty)
+          logger.warn(s"[REPLACE-VIDEO] resourceDoId=$resourceDoId duration could not be determined, defaulting to 0")
+
+        val updatePayload = new util.HashMap[String, AnyRef]() {{
+          put(ContentConstants.IDENTIFIER, resourceDoId)
+          put(ContentConstants.VERSION_KEY, versionKey)
+          put(ContentConstants.PREVIEW_URL, videoUrl)
+          put(ContentConstants.ARTIFACT_URL, videoUrl)
+          put(ContentConstants.DOWNLOAD_URL, videoUrl)
+          put(ContentConstants.CLOUD_STORAGE_KEY, storageKey)
+          put(ContentConstants.S3_KEY, storageKey)
+          put(ContentConstants.DURATION, durationStr)
+        }}
+        val updateReq = new Request()
+        updateReq.setOperation("systemUpdate")
+        updateReq.setContext(
+          new util.HashMap[String, AnyRef]() {{
+            put(ContentConstants.GRAPH_ID, "domain")
+            put(ContentConstants.VERSION, "1.0")
+            put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+            put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
+            put(ContentConstants.IDENTIFIER, resourceDoId)
+            put("skipValidation", Boolean.box(true))
+          }}
+        )
+        updateReq.setRequest(updatePayload)
+        systemUpdate(updateReq).flatMap { _ =>
+          val hierarchyUpdates = new util.HashMap[String, AnyRef]() {{
+            put(ContentConstants.PREVIEW_URL, videoUrl)
+            put(ContentConstants.ARTIFACT_URL, videoUrl)
+            put(ContentConstants.DOWNLOAD_URL, videoUrl)
+            put(ContentConstants.CLOUD_STORAGE_KEY, storageKey)
+            put(ContentConstants.S3_KEY, storageKey)
+            put(ContentConstants.DURATION, durationStr)
+          }}
+          val hierarchySyncFuture =
+            if (StringUtils.isNotBlank(contentDoId))
+              syncHierarchyLeafNode(contentDoId, resourceDoId, hierarchyUpdates)
+            else {
+              logger.warn(s"[REPLACE-VIDEO] contentDoId missing, skipping hierarchy sync for resourceDoId=$resourceDoId")
+              Future.successful(())
+            }
+          hierarchySyncFuture.map { _ =>
+            ResponseHandler.OK
+              .put("resourceDoId", resourceDoId)
+              .put("contentDoId", contentDoId)
+              .put(ContentConstants.DURATION, durationStr)
+          }
+        }
+      }
+    }
+  }
+
+  private def syncHierarchyLeafNode(courseId: String, leafId: String, updates: util.Map[String, AnyRef]): Future[Unit] = {
+    val hierarchyReq = new Request()
+    hierarchyReq.setContext(
+      new util.HashMap[String, AnyRef]() {{
+        put(ContentConstants.GRAPH_ID, "domain")
+        put(ContentConstants.VERSION, "1.0")
+        put(ContentConstants.OBJECT_TYPE, "Collection")
+        put(ContentConstants.SCHEMA_NAME, "collection")
+      }}
+    )
+
+    HierarchyManager.fetchHierarchy(hierarchyReq, courseId).flatMap { hierarchyMap =>
+      if (hierarchyMap == null || hierarchyMap.isEmpty) {
+        logger.warn(s"[REPLACE-VIDEO] No hierarchy found in Cassandra for courseId=$courseId, skipping hierarchy sync")
+        Future.successful(())
+      } else {
+        // `hierarchyMap` IS the already-deserialized hierarchy document (fetchHierarchy already
+        // pulled the "hierarchy" column and parsed its JSON) - map it to a mutable object model.
+        val hierarchyData: util.Map[String, AnyRef] = new util.HashMap[String, AnyRef](hierarchyMap.asJava)
+
+        val children = hierarchyData
+          .getOrDefault("children", new util.ArrayList[util.Map[String, AnyRef]]())
+          .asInstanceOf[util.List[util.Map[String, AnyRef]]]
+
+        val found = updateLeafNodeFieldsInHierarchy(children, leafId, updates)
+
+        if (!found) {
+          logger.warn(s"[REPLACE-VIDEO] leafId=$leafId not found in hierarchy of courseId=$courseId, skipping hierarchy sync")
+          Future.successful(())
+        } else {
+          // put the (mutated in-place) children back into the full document
+          hierarchyData.put("children", children)
+
+          // ---- serialize the whole object back to JSON ----
+          val updatedHierarchyJson = JsonUtils.serialize(hierarchyData)
+
+          val saveReq = new Request(hierarchyReq)
+          saveReq.put("hierarchy", updatedHierarchyJson)
+          saveReq.put("identifier", courseId)
+
+          oec.graphService.saveExternalProps(saveReq).map { _ =>
+            RedisCache.delete(hierarchyPrefix + courseId)
+            logger.info(s"[REPLACE-VIDEO] Synced hierarchy leaf node leafId=$leafId for courseId=$courseId")
+          }
+        }
+      }
+    }
+  }
+
+  private def updateLeafNodeFieldsInHierarchy(children: util.List[util.Map[String, AnyRef]], leafId: String, updates: util.Map[String, AnyRef]): Boolean = {
+    if (children == null || children.isEmpty) false
+    else children.asScala.exists { content =>
+      val identifier = Option(content.get("identifier")).map(_.toString).getOrElse("")
+      if (StringUtils.equalsIgnoreCase(leafId, identifier)) {
+        content.putAll(updates)
+        true
+      } else {
+        val childChildren = content.getOrDefault("children", new util.ArrayList[util.Map[String, AnyRef]]())
+          .asInstanceOf[util.List[util.Map[String, AnyRef]]]
+        updateLeafNodeFieldsInHierarchy(childChildren, leafId, updates)
+      }
+    }
+  }
+
+  private def deriveCloudStorageKey(videoUrl: String): String = {
+    val marker = "content/"
+    val idx = videoUrl.indexOf(marker)
+    if (idx < 0)
+      throw new ClientException(
+        "ERR_INVALID_VIDEO_URL",
+        s"videoUrl does not contain expected path segment '$marker': $videoUrl"
+      )
+    videoUrl.substring(idx)
+  }
+
+  private def fetchVideoDurationSeconds(videoUrl: String): Future[Option[Long]] = Future {
+    try {
+      val cmd = Seq(
+        "ffprobe", "-v", "error",
+        "-rw_timeout", "15000000",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        videoUrl
+      )
+      val output = cmd.!!.trim
+      Try(output.toDouble.round).toOption
+    } catch {
+      case ex: Exception =>
+        logger.error(s"[REPLACE-VIDEO] Error while fetching duration for $videoUrl", ex)
+        None
+    }
   }
 
   def getRetirementStatus(request: Request)(implicit ec: ExecutionContext): Future[Response] = {
