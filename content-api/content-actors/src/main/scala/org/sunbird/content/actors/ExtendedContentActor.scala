@@ -944,8 +944,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
   }
 
   def replaceVideo(request: Request): Future[Response] = {
-    val resourceId = Option(request.get("resourceId")).map(_.toString.trim).getOrElse("")
-    val courseId = Option(request.get("courseId")).map(_.toString.trim).getOrElse("")
+    val resourceId = Option(request.get(ContentConstants.RESOURCE_ID)).map(_.toString.trim).getOrElse("")
+    val courseId = Option(request.get(ContentConstants.COURSE_ID)).map(_.toString.trim).getOrElse("")
     val videoUrl = Option(request.get("videoUrl")).map(_.toString.trim).getOrElse("")
     val durationStr = Option(request.get(ContentConstants.DURATION)).map(_.toString.trim).getOrElse("")
     if (StringUtils.isBlank(resourceId) || StringUtils.isBlank(videoUrl) || StringUtils.isBlank(durationStr))
@@ -1009,8 +1009,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           }
         hierarchySyncFuture.map { _ =>
           ResponseHandler.OK
-            .put("resourceId", resourceId)
-            .put("courseId", courseId)
+            .put(ContentConstants.RESOURCE_ID, resourceId)
+            .put(ContentConstants.COURSE_ID, courseId)
             .put(ContentConstants.DURATION, durationStr)
         }
       }
