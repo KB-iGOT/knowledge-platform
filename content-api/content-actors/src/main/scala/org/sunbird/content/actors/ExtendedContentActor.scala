@@ -34,7 +34,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
 import java.time.{LocalDate, ZonedDateTime}
-import scala.sys.process._
 
 class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
