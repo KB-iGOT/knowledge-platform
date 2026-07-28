@@ -198,6 +198,7 @@ object ContentConstants {
     val EXTENDED_READ_ASSESSMENT_CACHE_KEY_PREFIX = "extended_read_assessment_"
     val COURSES = "courses"
     val COURSE_ID = "courseId"
+    val RESOURCE_ID = "resourceId"
     val ASSESSMENT_DETAIL = "assessmentDetail"
     val MILESTONES_V1 = "milestones_v1"
     val LEARNING_PATHWAY = "Learning Pathway"

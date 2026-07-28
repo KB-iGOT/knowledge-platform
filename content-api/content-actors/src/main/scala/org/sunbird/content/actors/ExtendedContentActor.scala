@@ -34,7 +34,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 import com.datastax.driver.core.{LocalDate => CassandraLocalDate}
 import java.time.{LocalDate, ZonedDateTime}
-import scala.sys.process._
 
 class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
@@ -945,12 +944,13 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
   }
 
   def replaceVideo(request: Request): Future[Response] = {
-    val resourceDoId = Option(request.get("resourceDoId")).map(_.toString.trim).getOrElse("")
-    val contentDoId = Option(request.get("contentDoId")).map(_.toString.trim).getOrElse("")
+    val resourceId = Option(request.get(ContentConstants.RESOURCE_ID)).map(_.toString.trim).getOrElse("")
+    val courseId = Option(request.get(ContentConstants.COURSE_ID)).map(_.toString.trim).getOrElse("")
     val videoUrl = Option(request.get("videoUrl")).map(_.toString.trim).getOrElse("")
-    if (StringUtils.isBlank(resourceDoId) || StringUtils.isBlank(videoUrl))
-      throw new ClientException(ContentConstants.ERR_INVALID_REQUEST, "resourceDoId and videoUrl are required")
-    logger.info(s"[REPLACE-VIDEO] Started for resourceDoId=$resourceDoId contentDoId=$contentDoId videoUrl=$videoUrl")
+    val durationStr = Option(request.get(ContentConstants.DURATION)).map(_.toString.trim).getOrElse("")
+    if (StringUtils.isBlank(resourceId) || StringUtils.isBlank(videoUrl) || StringUtils.isBlank(durationStr))
+      throw new ClientException(ContentConstants.ERR_INVALID_REQUEST, "resourceId, videoUrl and duration are required")
+    logger.info(s"[REPLACE-VIDEO] Started for resourceId=$resourceId courseId=$courseId videoUrl=$videoUrl duration=$durationStr")
 
     val resourceReadReq = new Request()
     resourceReadReq.setContext(
@@ -961,21 +961,38 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
         put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
       }}
     )
-    resourceReadReq.put(ContentConstants.IDENTIFIER, resourceDoId)
+    resourceReadReq.put(ContentConstants.IDENTIFIER, resourceId)
     resourceReadReq.put(ContentConstants.MODE, "read")
 
     DataNode.read(resourceReadReq).flatMap { resourceNode =>
       val versionKey = resourceNode.getMetadata.get(ContentConstants.VERSION_KEY)
       val storageKey = deriveCloudStorageKey(videoUrl)
 
-      fetchVideoDurationSeconds(videoUrl).flatMap { durationSeconds =>
-        val durationStr = durationSeconds.map(_.toString).getOrElse("0")
-        if (durationSeconds.isEmpty)
-          logger.warn(s"[REPLACE-VIDEO] resourceDoId=$resourceDoId duration could not be determined, defaulting to 0")
-
-        val updatePayload = new util.HashMap[String, AnyRef]() {{
-          put(ContentConstants.IDENTIFIER, resourceDoId)
-          put(ContentConstants.VERSION_KEY, versionKey)
+      val updatePayload = new util.HashMap[String, AnyRef]() {{
+        put(ContentConstants.IDENTIFIER, resourceId)
+        put(ContentConstants.VERSION_KEY, versionKey)
+        put(ContentConstants.PREVIEW_URL, videoUrl)
+        put(ContentConstants.ARTIFACT_URL, videoUrl)
+        put(ContentConstants.DOWNLOAD_URL, videoUrl)
+        put(ContentConstants.CLOUD_STORAGE_KEY, storageKey)
+        put(ContentConstants.S3_KEY, storageKey)
+        put(ContentConstants.DURATION, durationStr)
+      }}
+      val updateReq = new Request()
+      updateReq.setOperation("systemUpdate")
+      updateReq.setContext(
+        new util.HashMap[String, AnyRef]() {{
+          put(ContentConstants.GRAPH_ID, "domain")
+          put(ContentConstants.VERSION, "1.0")
+          put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+          put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
+          put(ContentConstants.IDENTIFIER, resourceId)
+          put("skipValidation", Boolean.box(true))
+        }}
+      )
+      updateReq.setRequest(updatePayload)
+      systemUpdate(updateReq).flatMap { _ =>
+        val hierarchyUpdates = new util.HashMap[String, AnyRef]() {{
           put(ContentConstants.PREVIEW_URL, videoUrl)
           put(ContentConstants.ARTIFACT_URL, videoUrl)
           put(ContentConstants.DOWNLOAD_URL, videoUrl)
@@ -983,41 +1000,18 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           put(ContentConstants.S3_KEY, storageKey)
           put(ContentConstants.DURATION, durationStr)
         }}
-        val updateReq = new Request()
-        updateReq.setOperation("systemUpdate")
-        updateReq.setContext(
-          new util.HashMap[String, AnyRef]() {{
-            put(ContentConstants.GRAPH_ID, "domain")
-            put(ContentConstants.VERSION, "1.0")
-            put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
-            put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
-            put(ContentConstants.IDENTIFIER, resourceDoId)
-            put("skipValidation", Boolean.box(true))
-          }}
-        )
-        updateReq.setRequest(updatePayload)
-        systemUpdate(updateReq).flatMap { _ =>
-          val hierarchyUpdates = new util.HashMap[String, AnyRef]() {{
-            put(ContentConstants.PREVIEW_URL, videoUrl)
-            put(ContentConstants.ARTIFACT_URL, videoUrl)
-            put(ContentConstants.DOWNLOAD_URL, videoUrl)
-            put(ContentConstants.CLOUD_STORAGE_KEY, storageKey)
-            put(ContentConstants.S3_KEY, storageKey)
-            put(ContentConstants.DURATION, durationStr)
-          }}
-          val hierarchySyncFuture =
-            if (StringUtils.isNotBlank(contentDoId))
-              syncHierarchyLeafNode(contentDoId, resourceDoId, hierarchyUpdates)
-            else {
-              logger.warn(s"[REPLACE-VIDEO] contentDoId missing, skipping hierarchy sync for resourceDoId=$resourceDoId")
-              Future.successful(())
-            }
-          hierarchySyncFuture.map { _ =>
-            ResponseHandler.OK
-              .put("resourceDoId", resourceDoId)
-              .put("contentDoId", contentDoId)
-              .put(ContentConstants.DURATION, durationStr)
+        val hierarchySyncFuture =
+          if (StringUtils.isNotBlank(courseId))
+            syncHierarchyLeafNode(courseId, resourceId, hierarchyUpdates)
+          else {
+            logger.warn(s"[REPLACE-VIDEO] courseId missing, skipping hierarchy sync for resourceId=$resourceId")
+            Future.successful(())
           }
+        hierarchySyncFuture.map { _ =>
+          ResponseHandler.OK
+            .put(ContentConstants.RESOURCE_ID, resourceId)
+            .put(ContentConstants.COURSE_ID, courseId)
+            .put(ContentConstants.DURATION, durationStr)
         }
       }
     }
@@ -1096,24 +1090,6 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
         s"videoUrl does not contain expected path segment '$marker': $videoUrl"
       )
     videoUrl.substring(idx)
-  }
-
-  private def fetchVideoDurationSeconds(videoUrl: String): Future[Option[Long]] = Future {
-    try {
-      val cmd = Seq(
-        "ffprobe", "-v", "error",
-        "-rw_timeout", "15000000",
-        "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1",
-        videoUrl
-      )
-      val output = cmd.!!.trim
-      Try(output.toDouble.round).toOption
-    } catch {
-      case ex: Exception =>
-        logger.error(s"[REPLACE-VIDEO] Error while fetching duration for $videoUrl", ex)
-        None
-    }
   }
 
   def getRetirementStatus(request: Request)(implicit ec: ExecutionContext): Future[Response] = {
