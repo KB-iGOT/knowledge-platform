@@ -57,19 +57,32 @@ public class SearchProcessor {
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public Future<Map<String, Object>> processSearch(SearchDTO searchDTO, boolean includeResults)
 			throws Exception {
+
 		if (isCoordinatorEligibilityRequest(searchDTO)) {
 			String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
-			return fetchCoordinatorProgramIds(userId).flatMap(new Mapper<List<String>, Future<Map<String, Object>>>() {
-				public Future<Map<String, Object>> apply(List<String> programIds) {
-					searchDTO.addAdditionalProperty(SearchConstants.COORDINATOR_PROGRAM_IDS, programIds);
-					try {
-						return processSearchInternal(searchDTO, includeResults);
-					} catch (Exception e) {
-						return akka.dispatch.Futures.failed(e);
-					}
-				}
-			}, ExecutionContext.Implicits$.MODULE$.global());
+
+			return fetchCoordinatorProgramIds(userId).flatMap(
+					new Mapper<List<String>, Future<Map<String, Object>>>() {
+						@Override
+						public Future<Map<String, Object>> apply(List<String> programIds) {
+							if (CollectionUtils.isNotEmpty(programIds)) {
+								searchDTO.addAdditionalProperty(
+										SearchConstants.COORDINATOR_PROGRAM_IDS,
+										programIds
+								);
+							}
+
+							try {
+								return processSearchInternal(searchDTO, includeResults);
+							} catch (Exception e) {
+								return akka.dispatch.Futures.failed(e);
+							}
+						}
+					},
+					ExecutionContext.Implicits$.MODULE$.global()
+			);
 		}
+
 		return processSearchInternal(searchDTO, includeResults);
 	}
 
@@ -1127,21 +1140,19 @@ public class SearchProcessor {
 		eligibilityQuery.fetchSource(false);
 		eligibilityQuery.size(1000);
 
-        try {
-            return ElasticSearchUtil.search(eligibilityIndex, eligibilityQuery)
-                    .map(new Mapper<SearchResponse, List<String>>() {
-                        public List<String> apply(SearchResponse response) {
-                            List<String> programIds = Arrays.stream(response.getHits().getHits())
-                                    .map(hit -> hit.getId())
-                                    .collect(Collectors.toList());
-                            return programIds.isEmpty()
-                                    ? Arrays.asList(SearchConstants.NO_PROGRAM_SENTINEL)
-                                    : programIds;
-                        }
-                    }, ExecutionContext.Implicits$.MODULE$.global());
-        } catch (IOException e) {
+		try {
+			return ElasticSearchUtil.search(eligibilityIndex, eligibilityQuery)
+					.map(new Mapper<SearchResponse, List<String>>() {
+						@Override
+						public List<String> apply(SearchResponse response) {
+							return Arrays.stream(response.getHits().getHits())
+									.map(SearchHit::getId)
+									.collect(Collectors.toList());
+						}
+					}, ExecutionContext.Implicits$.MODULE$.global());
+		} catch (IOException e) {
 			TelemetryManager.error("Failed to fetch coordinator program ids", e);
 			return akka.dispatch.Futures.failed(e);
-        }
-    }
+		}
+	}
 }
