@@ -5,6 +5,7 @@ import com.google.inject.Inject
 import com.google.inject.name.Named
 import handlers.LoggingAction
 import managers.SearchManager
+import org.apache.commons.lang3.StringUtils
 import org.sunbird.search.util.SearchConstants
 import play.api.mvc.ControllerComponents
 import utils.{ActorNames, ApiId}
@@ -85,6 +86,52 @@ class ExtendedSearchController @Inject()(@Named(ActorNames.SEARCH_ACTOR) searchA
         } catch {
             case NonFatal(e) =>
                 new java.util.HashMap[String, Object]()
+        }
+    }
+
+    def blendedProgramSearch() = loggingAction.async { implicit request =>
+        val internalReq = getRequest(ApiId.BP_SEARCH)
+        val requestMap: java.util.Map[String, Any] = internalReq.getRequest.asInstanceOf[util.Map[String, Any]]
+        requestMap.put(SearchConstants.isSecureSettingsDisabled, true)
+        setHeaderContext(internalReq)
+
+        val tokenOpt = request.headers.get("x-authenticated-user-token")
+          .orElse(request.headers.get("Authorization").map(h => if (h.startsWith("Bearer ")) h.substring(7) else h))
+
+        var userId: String = SearchConstants.UNAUTHORIZED
+        tokenOpt.foreach { token =>
+            val claims = getClaimsFromToken(token)
+            userId = extractUserIdFromClaims(claims)
+        }
+
+        if (StringUtils.isBlank(userId) || SearchConstants.UNAUTHORIZED.equals(userId)) {
+            getErrorResponse(ApiId.APPLICATION_SEARCH, apiVersion, SearchConstants.ERR_ACCESS_DENIED, "User ID not found in token")
+        } else {
+            internalReq.getContext.put(SearchConstants.USER_ID, userId)
+            internalReq.getContext.put(SearchConstants.API_VERSION, SearchConstants.VERSION_V6)
+            internalReq.getContext.put(SearchConstants.setDefaultVisibility, "true")
+            internalReq.getContext.put(SearchConstants.COORDINATOR_PROGRAM_IDS + "_flag", java.lang.Boolean.TRUE)
+
+            getResult(mgr.search(internalReq, searchActor), ApiId.APPLICATION_SEARCH)
+        }
+    }
+
+    private def extractUserIdFromClaims(claims: java.util.Map[String, Object]): String = {
+        try {
+            if (claims == null || claims.isEmpty) {
+                return SearchConstants.UNAUTHORIZED
+            }
+            var sub = claims.get("sub").asInstanceOf[String]
+            if (StringUtils.isNotBlank(sub)) {
+                sub = sub.substring(sub.lastIndexOf(":") + 1)
+                sub
+            } else {
+                SearchConstants.UNAUTHORIZED
+            }
+        } catch {
+            case NonFatal(e) =>
+                TelemetryManager.error("Exception extracting userId from claims", e)
+                SearchConstants.UNAUTHORIZED
         }
     }
 }

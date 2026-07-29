@@ -133,4 +133,13 @@ public class SearchConstants {
     public static final String COURSE_IDS = "courseIds";
     public static final String API_VERSION = "apiVersion";
     public static final String VERSION_V5 = "v5";
+    public static final String USER_ID = "userId";
+    public static final String COORDINATOR_PROGRAM_IDS = "coordinatorProgramIds";
+    public static final String COORDINATOR_ELIGIBILITY_INDEX = "search.coordinator_eligibility.index";
+    public static final String COORDINATOR_ELIGIBILITY_INDEX_DEFAULT = "program_coordinator_label_v1";
+    public static final String NO_PROGRAM_SENTINEL = "__no_program_assigned__";
+    public static final String UNAUTHORIZED = "Unauthorized";
+    public static final String VERSION_V6 = "v6";
+    public static final String COORDINATORS  = "coordinators";
+    public static final String COORDINATORS_USERID = "coordinators.userId";
 }

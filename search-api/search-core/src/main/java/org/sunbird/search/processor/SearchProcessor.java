@@ -28,6 +28,7 @@ import org.sunbird.telemetry.logger.TelemetryManager;
 import scala.concurrent.ExecutionContext;
 import scala.concurrent.Future;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -41,6 +42,13 @@ public class SearchProcessor {
 	public SearchProcessor() {
 		ElasticSearchUtil.initialiseESClient(SearchConstants.COMPOSITE_SEARCH_INDEX,
 				Platform.config.getString("search.es_conn_info"));
+
+		ElasticSearchUtil.initialiseESClient(
+				Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
+						? Platform.config.getString(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
+						: SearchConstants.COORDINATOR_ELIGIBILITY_INDEX_DEFAULT,
+				Platform.config.getString("search.es_conn_info")
+		);
 	}
 
 	public SearchProcessor(String indexName) {
@@ -48,6 +56,24 @@ public class SearchProcessor {
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public Future<Map<String, Object>> processSearch(SearchDTO searchDTO, boolean includeResults)
+			throws Exception {
+		if (isCoordinatorEligibilityRequest(searchDTO)) {
+			String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
+			return fetchCoordinatorProgramIds(userId).flatMap(new Mapper<List<String>, Future<Map<String, Object>>>() {
+				public Future<Map<String, Object>> apply(List<String> programIds) {
+					searchDTO.addAdditionalProperty(SearchConstants.COORDINATOR_PROGRAM_IDS, programIds);
+					try {
+						return processSearchInternal(searchDTO, includeResults);
+					} catch (Exception e) {
+						return akka.dispatch.Futures.failed(e);
+					}
+				}
+			}, ExecutionContext.Implicits$.MODULE$.global());
+		}
+		return processSearchInternal(searchDTO, includeResults);
+	}
+
+	private Future<Map<String, Object>> processSearchInternal(SearchDTO searchDTO, boolean includeResults)
 			throws Exception {
 		List<Map<String, Object>> groupByFinalList = new ArrayList<Map<String, Object>>();
 		SearchSourceBuilder query = processSearchQuery(searchDTO, groupByFinalList, true);
@@ -98,7 +124,6 @@ public class SearchProcessor {
 					} else if(CollectionUtils.isNotEmpty(searchDTO.getAggregations())){
 						resp.put("aggregations", aggregateResult(aggregations));
 					}
-
 				}
 				resp.put("count", (int) searchResult.getHits().getTotalHits());
 				return resp;
@@ -283,6 +308,21 @@ public class SearchProcessor {
 				BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
 				boolQuery.must(query);
 				boolQuery.filter(termsLookupQuery);
+				query = boolQuery;
+			}
+		}
+		List<String> coordinatorProgramIds = (List<String>) searchDTO.getAdditionalProperty(SearchConstants.COORDINATOR_PROGRAM_IDS);
+		if (CollectionUtils.isNotEmpty(coordinatorProgramIds)) {
+			TermsQueryBuilder coordinatorFilter = QueryBuilders.termsQuery(
+					SearchConstants.identifier + SearchConstants.RAW_FIELD_EXTENSION,
+					coordinatorProgramIds
+			);
+			if (query instanceof BoolQueryBuilder) {
+				((BoolQueryBuilder) query).filter(coordinatorFilter);
+			} else {
+				BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+				boolQuery.must(query);
+				boolQuery.filter(coordinatorFilter);
 				query = boolQuery;
 			}
 		}
@@ -1060,5 +1100,48 @@ public class SearchProcessor {
             );
         }
         return queryBuilder;
+    }
+
+	private boolean isCoordinatorEligibilityRequest(SearchDTO searchDTO) {
+		String apiVersion = (String) searchDTO.getAdditionalProperty(SearchConstants.API_VERSION);
+		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
+		Boolean coordinatorFlag = (Boolean) searchDTO.getAdditionalProperty(SearchConstants.COORDINATOR_PROGRAM_IDS + "_flag");
+		return StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V6, apiVersion)
+				&& Boolean.TRUE.equals(coordinatorFlag)
+				&& StringUtils.isNotBlank(userId);
+	}
+
+	private Future<List<String>> fetchCoordinatorProgramIds(String userId) {
+		String eligibilityIndex = Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
+				? Platform.config.getString(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
+				: SearchConstants.COORDINATOR_ELIGIBILITY_INDEX_DEFAULT;
+
+		SearchSourceBuilder eligibilityQuery = new SearchSourceBuilder();
+		eligibilityQuery.query(
+				QueryBuilders.nestedQuery(
+						SearchConstants.COORDINATORS,
+						QueryBuilders.termQuery(SearchConstants.COORDINATORS_USERID, userId),
+						org.apache.lucene.search.join.ScoreMode.None
+				)
+		);
+		eligibilityQuery.fetchSource(false);
+		eligibilityQuery.size(1000);
+
+        try {
+            return ElasticSearchUtil.search(eligibilityIndex, eligibilityQuery)
+                    .map(new Mapper<SearchResponse, List<String>>() {
+                        public List<String> apply(SearchResponse response) {
+                            List<String> programIds = Arrays.stream(response.getHits().getHits())
+                                    .map(hit -> hit.getId())
+                                    .collect(Collectors.toList());
+                            return programIds.isEmpty()
+                                    ? Arrays.asList(SearchConstants.NO_PROGRAM_SENTINEL)
+                                    : programIds;
+                        }
+                    }, ExecutionContext.Implicits$.MODULE$.global());
+        } catch (IOException e) {
+			TelemetryManager.error("Failed to fetch coordinator program ids", e);
+			return akka.dispatch.Futures.failed(e);
+        }
     }
 }
