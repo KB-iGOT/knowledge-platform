@@ -47,7 +47,7 @@ public class SearchProcessor {
 				Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
 						? Platform.config.getString(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
 						: SearchConstants.COORDINATOR_ELIGIBILITY_INDEX_DEFAULT,
-				Platform.config.getString("search.es_conn_info")
+				Platform.config.getString(SearchConstants.SEARCH_ES_CONN_INFO)
 		);
 	}
 

@@ -142,4 +142,11 @@ public class SearchConstants {
     public static final String VERSION_V6 = "v6";
     public static final String COORDINATORS  = "coordinators";
     public static final String COORDINATORS_USERID = "coordinators.userId";
+    public static final String X_AUTHENTICATED_USER_TOKEN = "x-authenticated-user-token";
+    public static final String AUTHROIZATION = "Authorization";
+    public static final String BEARER = "Bearer ";
+    public static final String TRUE = "true";
+    public static final String FLAG = "_flag";
+    public static final String SUB = "sub";
+    public static final String SEARCH_ES_CONN_INFO = "search.es_conn_info";
 }

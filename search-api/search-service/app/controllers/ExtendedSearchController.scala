@@ -95,8 +95,8 @@ class ExtendedSearchController @Inject()(@Named(ActorNames.SEARCH_ACTOR) searchA
         requestMap.put(SearchConstants.isSecureSettingsDisabled, true)
         setHeaderContext(internalReq)
 
-        val tokenOpt = request.headers.get("x-authenticated-user-token")
-          .orElse(request.headers.get("Authorization").map(h => if (h.startsWith("Bearer ")) h.substring(7) else h))
+        val tokenOpt = request.headers.get(SearchConstants.X_AUTHENTICATED_USER_TOKEN)
+          .orElse(request.headers.get(SearchConstants.AUTHROIZATION).map(h => if (h.startsWith(SearchConstants.BEARER)) h.substring(7) else h))
 
         var userId: String = SearchConstants.UNAUTHORIZED
         tokenOpt.foreach { token =>
@@ -109,8 +109,8 @@ class ExtendedSearchController @Inject()(@Named(ActorNames.SEARCH_ACTOR) searchA
         } else {
             internalReq.getContext.put(SearchConstants.USER_ID, userId)
             internalReq.getContext.put(SearchConstants.API_VERSION, SearchConstants.VERSION_V6)
-            internalReq.getContext.put(SearchConstants.setDefaultVisibility, "true")
-            internalReq.getContext.put(SearchConstants.COORDINATOR_PROGRAM_IDS + "_flag", java.lang.Boolean.TRUE)
+            internalReq.getContext.put(SearchConstants.setDefaultVisibility, SearchConstants.TRUE)
+            internalReq.getContext.put(SearchConstants.COORDINATOR_PROGRAM_IDS + SearchConstants.FLAG, java.lang.Boolean.TRUE)
 
             getResult(mgr.search(internalReq, searchActor), ApiId.APPLICATION_SEARCH)
         }
@@ -121,7 +121,7 @@ class ExtendedSearchController @Inject()(@Named(ActorNames.SEARCH_ACTOR) searchA
             if (claims == null || claims.isEmpty) {
                 return SearchConstants.UNAUTHORIZED
             }
-            var sub = claims.get("sub").asInstanceOf[String]
+            var sub = claims.get(SearchConstants.SUB).asInstanceOf[String]
             if (StringUtils.isNotBlank(sub)) {
                 sub = sub.substring(sub.lastIndexOf(":") + 1)
                 sub
