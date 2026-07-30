@@ -149,6 +149,6 @@ public class SearchConstants {
     public static final String FLAG = "_flag";
     public static final String SUB = "sub";
     public static final String SEARCH_ES_CONN_INFO = "search.es_conn_info";
-    public static final String COORDINATOR_ELIGIBLE_ROLES = "search.coordinator.eligible.roles";
     public static final String PROGRAM_IDS = "programIds";
+    public static final String BLENDED_PROGRAM_SEARCH = "blendedProgramSearch";
 }

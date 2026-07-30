@@ -99,25 +99,17 @@ class ExtendedSearchController @Inject()(@Named(ActorNames.SEARCH_ACTOR) searchA
           .orElse(request.headers.get(SearchConstants.AUTHROIZATION).map(h => if (h.startsWith(SearchConstants.BEARER)) h.substring(7) else h))
 
         var userId: String = SearchConstants.UNAUTHORIZED
-        var userRoles: java.util.List[String] = new java.util.ArrayList[String]()
         tokenOpt.foreach { token =>
             val claims = getClaimsFromToken(token)
             userId = extractUserIdFromClaims(claims)
-            if (claims != null) {
-                val rolesObj = claims.get(SearchConstants.USER_ROLES)
-                if (rolesObj != null && rolesObj.isInstanceOf[java.util.List[_]]) {
-                    userRoles = rolesObj.asInstanceOf[java.util.List[String]]
-                }
-            }
         }
 
         if (StringUtils.isBlank(userId) || SearchConstants.UNAUTHORIZED.equals(userId)) {
             getErrorResponse(ApiId.APPLICATION_SEARCH, apiVersion, SearchConstants.ERR_ACCESS_DENIED, "User ID not found in token")
         } else {
             internalReq.getContext.put(SearchConstants.USER_ID, userId)
-            internalReq.getContext.put(SearchConstants.API_VERSION, SearchConstants.VERSION_V6)
+            internalReq.getContext.put(SearchConstants.BLENDED_PROGRAM_SEARCH, Boolean.box(true))
             internalReq.getContext.put(SearchConstants.setDefaultVisibility, SearchConstants.TRUE)
-            internalReq.getContext.put(SearchConstants.USER_ROLES, userRoles)
 
             getResult(mgr.search(internalReq, searchActor), ApiId.APPLICATION_SEARCH)
         }

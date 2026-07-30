@@ -45,20 +45,7 @@ public class SearchProcessor {
 	public SearchProcessor() {
 		ElasticSearchUtil.initialiseESClient(SearchConstants.COMPOSITE_SEARCH_INDEX,
 				Platform.config.getString("search.es_conn_info"));
-
-		ElasticSearchUtil.initialiseESClient(
-				Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
-						? Platform.config.getString(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
-						: SearchConstants.COORDINATOR_ELIGIBILITY_INDEX_DEFAULT,
-				Platform.config.getString(SEARCH_ES_CONN_INFO));
-
 	}
-
-	List<String> coordinatorEligibleRoles =
-			Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBLE_ROLES)
-					? Platform.config.getStringList(SearchConstants.COORDINATOR_ELIGIBLE_ROLES)
-					: Collections.emptyList();
-
 
 	String userProgramLookupIndex = Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
 			? Platform.config.getString(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
@@ -307,7 +294,7 @@ public class SearchProcessor {
 			}
 		}
 		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
-		query = applyCoordinatorEligibilityFilter(query, userRoles, userId, apiVersion);
+		query = applyCoordinatorEligibilityFilter(query, userId, (Boolean) searchDTO.getAdditionalProperty(SearchConstants.BLENDED_PROGRAM_SEARCH));
 		if (searchDTO.isFuzzySearch())
 			relevanceSort = true;
 
@@ -1085,17 +1072,11 @@ public class SearchProcessor {
     }
 
 
-	private QueryBuilder applyCoordinatorEligibilityFilter(QueryBuilder query, List<String> userRoles, String userId, String apiVersion) {
+	private QueryBuilder applyCoordinatorEligibilityFilter(QueryBuilder query, String userId, Boolean isBlendedProgramSearch) {
 
-		boolean isCoordinatorRole = userRoles != null && userRoles.stream().anyMatch(coordinatorEligibleRoles::contains);
 
-		if (!StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V6, apiVersion)
-				|| !isCoordinatorRole
-				|| userId == null || userId.isEmpty()) {
-			return query;
-		}
-
-		if (!hasProgramIds(userId)) {
+		if (!Boolean.TRUE.equals(isBlendedProgramSearch)
+				|| StringUtils.isBlank(userId)) {
 			return query;
 		}
 
@@ -1124,31 +1105,6 @@ public class SearchProcessor {
 			boolQuery.must(query);
 			boolQuery.filter(coordinatorTermsLookupQuery);
 			return boolQuery;
-		}
-	}
-
-	private boolean hasProgramIds(String userId) {
-		try {
-			String response = ElasticSearchUtil.getDocumentAsStringById(
-					userProgramLookupIndex,
-					SearchConstants.ES_MAPPING_TYPE_DOC,
-					userId);
-
-			if (StringUtils.isBlank(response)) {
-				return false;
-			}
-
-			Map<String, Object> source = new ObjectMapper().readValue(
-					response,
-					new TypeReference<Map<String, Object>>() {}
-			);
-
-			List<String> programIds = (List<String>) source.get(PROGRAM_IDS);
-			return CollectionUtils.isNotEmpty(programIds);
-
-		} catch (Exception e) {
-			TelemetryManager.error("Error while reading lookup document", e);
-			return false;
 		}
 	}
 }
