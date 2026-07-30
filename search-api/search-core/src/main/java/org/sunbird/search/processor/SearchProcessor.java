@@ -32,6 +32,9 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.sunbird.search.util.SearchConstants.PROGRAM_IDS;
+import static org.sunbird.search.util.SearchConstants.SEARCH_ES_CONN_INFO;
+
 public class SearchProcessor {
 
 	private ObjectMapper mapper = new ObjectMapper();
@@ -47,46 +50,25 @@ public class SearchProcessor {
 				Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
 						? Platform.config.getString(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
 						: SearchConstants.COORDINATOR_ELIGIBILITY_INDEX_DEFAULT,
-				Platform.config.getString(SearchConstants.SEARCH_ES_CONN_INFO)
-		);
+				Platform.config.getString(SEARCH_ES_CONN_INFO));
+
 	}
+
+	List<String> coordinatorEligibleRoles =
+			Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBLE_ROLES)
+					? Platform.config.getStringList(SearchConstants.COORDINATOR_ELIGIBLE_ROLES)
+					: Collections.emptyList();
+
+
+	String userProgramLookupIndex = Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
+			? Platform.config.getString(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
+			: SearchConstants.COORDINATOR_ELIGIBILITY_INDEX_DEFAULT;
 
 	public SearchProcessor(String indexName) {
 	}
 
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public Future<Map<String, Object>> processSearch(SearchDTO searchDTO, boolean includeResults)
-			throws Exception {
-
-		if (isCoordinatorEligibilityRequest(searchDTO)) {
-			String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
-
-			return fetchCoordinatorProgramIds(userId).flatMap(
-					new Mapper<List<String>, Future<Map<String, Object>>>() {
-						@Override
-						public Future<Map<String, Object>> apply(List<String> programIds) {
-							if (CollectionUtils.isNotEmpty(programIds)) {
-								searchDTO.addAdditionalProperty(
-										SearchConstants.COORDINATOR_PROGRAM_IDS,
-										programIds
-								);
-							}
-
-							try {
-								return processSearchInternal(searchDTO, includeResults);
-							} catch (Exception e) {
-								return akka.dispatch.Futures.failed(e);
-							}
-						}
-					},
-					ExecutionContext.Implicits$.MODULE$.global()
-			);
-		}
-
-		return processSearchInternal(searchDTO, includeResults);
-	}
-
-	private Future<Map<String, Object>> processSearchInternal(SearchDTO searchDTO, boolean includeResults)
 			throws Exception {
 		List<Map<String, Object>> groupByFinalList = new ArrayList<Map<String, Object>>();
 		SearchSourceBuilder query = processSearchQuery(searchDTO, groupByFinalList, true);
@@ -324,21 +306,8 @@ public class SearchProcessor {
 				query = boolQuery;
 			}
 		}
-		List<String> coordinatorProgramIds = (List<String>) searchDTO.getAdditionalProperty(SearchConstants.COORDINATOR_PROGRAM_IDS);
-		if (CollectionUtils.isNotEmpty(coordinatorProgramIds)) {
-			TermsQueryBuilder coordinatorFilter = QueryBuilders.termsQuery(
-					SearchConstants.identifier + SearchConstants.RAW_FIELD_EXTENSION,
-					coordinatorProgramIds
-			);
-			if (query instanceof BoolQueryBuilder) {
-				((BoolQueryBuilder) query).filter(coordinatorFilter);
-			} else {
-				BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-				boolQuery.must(query);
-				boolQuery.filter(coordinatorFilter);
-				query = boolQuery;
-			}
-		}
+		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
+		query = applyCoordinatorEligibilityFilter(query, userRoles, userId, apiVersion);
 		if (searchDTO.isFuzzySearch())
 			relevanceSort = true;
 
@@ -1115,44 +1084,71 @@ public class SearchProcessor {
         return queryBuilder;
     }
 
-	private boolean isCoordinatorEligibilityRequest(SearchDTO searchDTO) {
-		String apiVersion = (String) searchDTO.getAdditionalProperty(SearchConstants.API_VERSION);
-		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
-		Boolean coordinatorFlag = (Boolean) searchDTO.getAdditionalProperty(SearchConstants.COORDINATOR_PROGRAM_IDS + "_flag");
-		return StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V6, apiVersion)
-				&& Boolean.TRUE.equals(coordinatorFlag)
-				&& StringUtils.isNotBlank(userId);
+
+	private QueryBuilder applyCoordinatorEligibilityFilter(QueryBuilder query, List<String> userRoles, String userId, String apiVersion) {
+
+		boolean isCoordinatorRole = userRoles != null && userRoles.stream().anyMatch(coordinatorEligibleRoles::contains);
+
+		if (!StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V6, apiVersion)
+				|| !isCoordinatorRole
+				|| userId == null || userId.isEmpty()) {
+			return query;
+		}
+
+		if (!hasProgramIds(userId)) {
+			return query;
+		}
+
+		org.elasticsearch.indices.TermsLookup coordinatorTermsLookup = new org.elasticsearch.indices.TermsLookup(
+				userProgramLookupIndex,
+				SearchConstants.ES_MAPPING_TYPE_DOC,
+				userId,
+				PROGRAM_IDS
+		);
+
+		TermsQueryBuilder coordinatorTermsLookupQuery;
+		try {
+			java.lang.reflect.Constructor<TermsQueryBuilder> constructor =
+					TermsQueryBuilder.class.getConstructor(String.class, org.elasticsearch.indices.TermsLookup.class);
+			coordinatorTermsLookupQuery = constructor.newInstance(
+					SearchConstants.identifier + SearchConstants.RAW_FIELD_EXTENSION, coordinatorTermsLookup);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to instantiate TermsQueryBuilder", e);
+		}
+
+		if (query instanceof BoolQueryBuilder) {
+			((BoolQueryBuilder) query).filter(coordinatorTermsLookupQuery);
+			return query;
+		} else {
+			BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+			boolQuery.must(query);
+			boolQuery.filter(coordinatorTermsLookupQuery);
+			return boolQuery;
+		}
 	}
 
-	private Future<List<String>> fetchCoordinatorProgramIds(String userId) {
-		String eligibilityIndex = Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
-				? Platform.config.getString(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
-				: SearchConstants.COORDINATOR_ELIGIBILITY_INDEX_DEFAULT;
-
-		SearchSourceBuilder eligibilityQuery = new SearchSourceBuilder();
-		eligibilityQuery.query(
-				QueryBuilders.nestedQuery(
-						SearchConstants.COORDINATORS,
-						QueryBuilders.termQuery(SearchConstants.COORDINATORS_USERID, userId),
-						org.apache.lucene.search.join.ScoreMode.None
-				)
-		);
-		eligibilityQuery.fetchSource(false);
-		eligibilityQuery.size(1000);
-
+	private boolean hasProgramIds(String userId) {
 		try {
-			return ElasticSearchUtil.search(eligibilityIndex, eligibilityQuery)
-					.map(new Mapper<SearchResponse, List<String>>() {
-						@Override
-						public List<String> apply(SearchResponse response) {
-							return Arrays.stream(response.getHits().getHits())
-									.map(SearchHit::getId)
-									.collect(Collectors.toList());
-						}
-					}, ExecutionContext.Implicits$.MODULE$.global());
-		} catch (IOException e) {
-			TelemetryManager.error("Failed to fetch coordinator program ids", e);
-			return akka.dispatch.Futures.failed(e);
+			String response = ElasticSearchUtil.getDocumentAsStringById(
+					userProgramLookupIndex,
+					SearchConstants.ES_MAPPING_TYPE_DOC,
+					userId);
+
+			if (StringUtils.isBlank(response)) {
+				return false;
+			}
+
+			Map<String, Object> source = new ObjectMapper().readValue(
+					response,
+					new TypeReference<Map<String, Object>>() {}
+			);
+
+			List<String> programIds = (List<String>) source.get(PROGRAM_IDS);
+			return CollectionUtils.isNotEmpty(programIds);
+
+		} catch (Exception e) {
+			TelemetryManager.error("Error while reading lookup document", e);
+			return false;
 		}
 	}
 }

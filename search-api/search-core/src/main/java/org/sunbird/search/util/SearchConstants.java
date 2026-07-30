@@ -136,7 +136,7 @@ public class SearchConstants {
     public static final String USER_ID = "userId";
     public static final String COORDINATOR_PROGRAM_IDS = "coordinatorProgramIds";
     public static final String COORDINATOR_ELIGIBILITY_INDEX = "search.coordinator_eligibility.index";
-    public static final String COORDINATOR_ELIGIBILITY_INDEX_DEFAULT = "program_coordinator_label_v1";
+    public static final String COORDINATOR_ELIGIBILITY_INDEX_DEFAULT = "user_program_lookup_v1";
     public static final String NO_PROGRAM_SENTINEL = "__no_program_assigned__";
     public static final String UNAUTHORIZED = "Unauthorized";
     public static final String VERSION_V6 = "v6";
@@ -149,4 +149,6 @@ public class SearchConstants {
     public static final String FLAG = "_flag";
     public static final String SUB = "sub";
     public static final String SEARCH_ES_CONN_INFO = "search.es_conn_info";
+    public static final String COORDINATOR_ELIGIBLE_ROLES = "search.coordinator.eligible.roles";
+    public static final String PROGRAM_IDS = "programIds";
 }
