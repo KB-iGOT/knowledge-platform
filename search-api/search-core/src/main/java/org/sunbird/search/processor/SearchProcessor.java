@@ -28,8 +28,12 @@ import org.sunbird.telemetry.logger.TelemetryManager;
 import scala.concurrent.ExecutionContext;
 import scala.concurrent.Future;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static org.sunbird.search.util.SearchConstants.PROGRAM_IDS;
+import static org.sunbird.search.util.SearchConstants.SEARCH_ES_CONN_INFO;
 
 public class SearchProcessor {
 
@@ -42,6 +46,10 @@ public class SearchProcessor {
 		ElasticSearchUtil.initialiseESClient(SearchConstants.COMPOSITE_SEARCH_INDEX,
 				Platform.config.getString("search.es_conn_info"));
 	}
+
+	String userProgramLookupIndex = Platform.config.hasPath(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
+			? Platform.config.getString(SearchConstants.COORDINATOR_ELIGIBILITY_INDEX)
+			: SearchConstants.COORDINATOR_ELIGIBILITY_INDEX_DEFAULT;
 
 	public SearchProcessor(String indexName) {
 	}
@@ -98,7 +106,6 @@ public class SearchProcessor {
 					} else if(CollectionUtils.isNotEmpty(searchDTO.getAggregations())){
 						resp.put("aggregations", aggregateResult(aggregations));
 					}
-
 				}
 				resp.put("count", (int) searchResult.getHits().getTotalHits());
 				return resp;
@@ -286,6 +293,8 @@ public class SearchProcessor {
 				query = boolQuery;
 			}
 		}
+		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
+		query = applyCoordinatorEligibilityFilter(query, userId, (Boolean) searchDTO.getAdditionalProperty(SearchConstants.BLENDED_PROGRAM_SEARCH));
 		if (searchDTO.isFuzzySearch())
 			relevanceSort = true;
 
@@ -1061,4 +1070,41 @@ public class SearchProcessor {
         }
         return queryBuilder;
     }
+
+
+	private QueryBuilder applyCoordinatorEligibilityFilter(QueryBuilder query, String userId, Boolean isBlendedProgramSearch) {
+
+
+		if (!Boolean.TRUE.equals(isBlendedProgramSearch)
+				|| StringUtils.isBlank(userId)) {
+			return query;
+		}
+
+		org.elasticsearch.indices.TermsLookup coordinatorTermsLookup = new org.elasticsearch.indices.TermsLookup(
+				userProgramLookupIndex,
+				SearchConstants.ES_MAPPING_TYPE_DOC,
+				userId,
+				PROGRAM_IDS
+		);
+
+		TermsQueryBuilder coordinatorTermsLookupQuery;
+		try {
+			java.lang.reflect.Constructor<TermsQueryBuilder> constructor =
+					TermsQueryBuilder.class.getConstructor(String.class, org.elasticsearch.indices.TermsLookup.class);
+			coordinatorTermsLookupQuery = constructor.newInstance(
+					SearchConstants.identifier + SearchConstants.RAW_FIELD_EXTENSION, coordinatorTermsLookup);
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to instantiate TermsQueryBuilder", e);
+		}
+
+		if (query instanceof BoolQueryBuilder) {
+			((BoolQueryBuilder) query).filter(coordinatorTermsLookupQuery);
+			return query;
+		} else {
+			BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
+			boolQuery.must(query);
+			boolQuery.filter(coordinatorTermsLookupQuery);
+			return boolQuery;
+		}
+	}
 }
