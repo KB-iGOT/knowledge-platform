@@ -121,6 +121,16 @@ public class SearchActor extends SearchBaseActor {
                 if (request.getContext().containsKey(SearchConstants.API_VERSION)) {
                     searchObj.addAdditionalProperty(SearchConstants.API_VERSION, request.getContext().get(SearchConstants.API_VERSION));
                 }
+                if (request.getContext().containsKey(SearchConstants.USER_ID)) {
+                    searchObj.addAdditionalProperty(
+                            SearchConstants.USER_ID,
+                            request.getContext().get(SearchConstants.USER_ID));
+                }
+                if (request.getContext().containsKey(SearchConstants.BLENDED_PROGRAM_SEARCH)) {
+                    searchObj.addAdditionalProperty(
+                            SearchConstants.BLENDED_PROGRAM_SEARCH,
+                            request.getContext().get(SearchConstants.BLENDED_PROGRAM_SEARCH));
+                }
             }
             TelemetryManager.log("Enhanced SearchDTO Object: " + ((new ObjectMapper()).writeValueAsString(searchObj)));
             String queryString = (String) req.get(SearchConstants.query);
