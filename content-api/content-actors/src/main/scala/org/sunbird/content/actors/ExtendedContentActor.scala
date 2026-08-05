@@ -1060,8 +1060,9 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       wrapperMap.put("request", requestMap)
       val requestBody = JsonUtils.serialize(wrapperMap)
       logger.info(s"Publish Request Body: $requestBody")
-      val publishUrl = Platform.getString("vm_learning_service_base_url", "http://localhost:9002/learning-service/content/v3/publish")
-      val url = s"$publishUrl/$resourceId"
+      val baseUrl = Platform.getString("vm_learning_service_base_url", "http://localhost:9002/learning-service/")
+      val publishEndpoint = Platform.getString("content_publish_end_point", "content/v3/publish")
+      val url = s"$baseUrl$publishEndpoint/$resourceId"
       val response = new HttpUtil().post(url, requestBody)
       logger.info(s"Publish Response: ${response.status}, ${response.body}")
     } catch {
