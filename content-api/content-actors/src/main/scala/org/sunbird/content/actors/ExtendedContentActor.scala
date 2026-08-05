@@ -954,8 +954,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     val courseId = Option(request.get(ContentConstants.COURSE_ID)).map(_.toString.trim).getOrElse("")
     val videoUrl = Option(request.get("videoUrl")).map(_.toString.trim).getOrElse("")
     val durationStr = Option(request.get(ContentConstants.DURATION)).map(_.toString.trim).getOrElse("")
-    if (StringUtils.isBlank(resourceId) || StringUtils.isBlank(videoUrl) || StringUtils.isBlank(durationStr))
-      throw new ClientException(ContentConstants.ERR_INVALID_REQUEST, "resourceId, videoUrl and duration are required")
+    if (StringUtils.isBlank(resourceId) || StringUtils.isBlank(courseId) || StringUtils.isBlank(videoUrl) || StringUtils.isBlank(durationStr))
+      throw new ClientException(ContentConstants.ERR_INVALID_REQUEST, "resourceId,courseId videoUrl and duration are required")
     logger.info(s"[REPLACE-VIDEO] Started for resourceId=$resourceId courseId=$courseId videoUrl=$videoUrl duration=$durationStr")
 
     val courseValidationFuture: Future[Unit] =
@@ -1060,8 +1060,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       wrapperMap.put("request", requestMap)
       val requestBody = JsonUtils.serialize(wrapperMap)
       logger.info(s"Publish Request Body: $requestBody")
-      val baseUrl = Platform.getString("learning_service.api.base_url", "http://localhost:9002/learning-service")
-      val url = s"$baseUrl/content/v3/publish/$resourceId"
+      val publishUrl = Platform.getString("vm_learning_service_base_url", "http://localhost:9002/learning-service/content/v3/publish")
+      val url = s"$publishUrl/$resourceId"
       val response = new HttpUtil().post(url, requestBody)
       logger.info(s"Publish Response: ${response.status}, ${response.body}")
     } catch {
