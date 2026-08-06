@@ -20,7 +20,7 @@ import org.sunbird.graph.nodes.DataNode
 import org.sunbird.graph.utils.NodeUtil
 import org.sunbird.managers.HierarchyManager
 import org.sunbird.managers.HierarchyManager.hierarchyPrefix
-import org.sunbird.util.RequestUtil
+import org.sunbird.util.{HttpUtil, RequestUtil}
 
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -64,6 +64,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
   private val contentHierarchyFields: Set[String] = Platform.config.getStringList(ContentConstants.EXTENDED_CONTENT_HIERARCHY_CHILDREN_FIELDS).asScala.toSet
   private val enrichChildrenCategories: Set[String] = Platform.config.getStringList(ContentConstants.EXTENDED_CONTENT_ENRICH_CHILDREN_CATEGORIES).asScala.toSet
   private val assessmentReadFields: util.List[String] = Platform.config.getStringList(ContentConstants.EXTENDED_CONTENT_ASSESSMENT_READ_FIELDS).asScala.toList.asJava
+  private val durationSyncAllowedCategories: Set[String] = Platform.getStringList(ContentConstants.DURATION_SYNC_ALLOWED_PRIMARY_CATEGORIES, util.Arrays.asList("Course")).asScala.toSet
 
   override def onReceive(request: Request): Future[Response] = {
     request.getOperation match {
@@ -858,6 +859,11 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     courseReadReq.put(ContentConstants.MODE, "read")
     DataNode.read(courseReadReq).flatMap { courseNode =>
       val metadata = courseNode.getMetadata
+      val primaryCategory = Option(metadata.get(ContentConstants.PRIMARY_CATEGORY)).map(_.toString).getOrElse("")
+      if (!durationSyncAllowedCategories.exists(_.equalsIgnoreCase(primaryCategory)))
+        throw new ClientException("ERR_UNSUPPORTED_PRIMARY_CATEGORY",
+          s"Duration sync is not supported for courseId=$courseId with primaryCategory='$primaryCategory'. Allowed categories: ${durationSyncAllowedCategories.mkString(", ")}"
+        )
       val leafNodes: List[String] =
         Option(metadata.get("leafNodes")) match {
           case Some(list: util.List[_]) =>
@@ -949,9 +955,31 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     val courseId = Option(request.get(ContentConstants.COURSE_ID)).map(_.toString.trim).getOrElse("")
     val videoUrl = Option(request.get("videoUrl")).map(_.toString.trim).getOrElse("")
     val durationStr = Option(request.get(ContentConstants.DURATION)).map(_.toString.trim).getOrElse("")
-    if (StringUtils.isBlank(resourceId) || StringUtils.isBlank(videoUrl) || StringUtils.isBlank(durationStr))
-      throw new ClientException(ContentConstants.ERR_INVALID_REQUEST, "resourceId, videoUrl and duration are required")
+    if (StringUtils.isBlank(resourceId) || StringUtils.isBlank(courseId) || StringUtils.isBlank(videoUrl) || StringUtils.isBlank(durationStr))
+      throw new ClientException(ContentConstants.ERR_INVALID_REQUEST, "resourceId,courseId videoUrl and duration are required")
     logger.info(s"[REPLACE-VIDEO] Started for resourceId=$resourceId courseId=$courseId videoUrl=$videoUrl duration=$durationStr")
+
+    val courseValidationFuture: Future[Unit] =
+      if (StringUtils.isNotBlank(courseId)) {
+        val courseReadReq = new Request()
+        courseReadReq.setContext(
+          new util.HashMap[String, AnyRef]() {{
+            put(ContentConstants.GRAPH_ID, "domain")
+            put(ContentConstants.VERSION, "1.0")
+            put(ContentConstants.OBJECT_TYPE, "Collection")
+            put(ContentConstants.SCHEMA_NAME, "collection")
+          }}
+        )
+        courseReadReq.put(ContentConstants.IDENTIFIER, courseId)
+        courseReadReq.put(ContentConstants.MODE, ContentConstants.EDIT_MODE)
+        DataNode.read(courseReadReq).map { courseNode =>
+          val status = Option(courseNode.getMetadata.get(ContentConstants.STATUS)).map(_.toString).getOrElse("")
+          if (StringUtils.equalsIgnoreCase(status, "Draft"))
+            throw new ClientException("ERR_CONTENT_DRAFT_STATUS",
+              s"Course $courseId is in Draft status. Cannot replace video while a draft edit is pending."
+            )
+        }
+      } else Future.successful(())
 
     val resourceReadReq = new Request()
     resourceReadReq.setContext(
@@ -965,35 +993,15 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
     resourceReadReq.put(ContentConstants.IDENTIFIER, resourceId)
     resourceReadReq.put(ContentConstants.MODE, "read")
 
-    DataNode.read(resourceReadReq).flatMap { resourceNode =>
-      val versionKey = resourceNode.getMetadata.get(ContentConstants.VERSION_KEY)
-      val storageKey = deriveCloudStorageKey(videoUrl)
+    courseValidationFuture.flatMap { _ =>
+      DataNode.read(resourceReadReq).flatMap { resourceNode =>
+        val versionKey = resourceNode.getMetadata.get(ContentConstants.VERSION_KEY)
+        val lastPublishedBy = Option(resourceNode.getMetadata.get(ContentConstants.LAST_PUBLISHED_BY)).map(_.toString).getOrElse("")
+        val storageKey = deriveCloudStorageKey(videoUrl)
 
-      val updatePayload = new util.HashMap[String, AnyRef]() {{
-        put(ContentConstants.IDENTIFIER, resourceId)
-        put(ContentConstants.VERSION_KEY, versionKey)
-        put(ContentConstants.PREVIEW_URL, videoUrl)
-        put(ContentConstants.ARTIFACT_URL, videoUrl)
-        put(ContentConstants.DOWNLOAD_URL, videoUrl)
-        put(ContentConstants.CLOUD_STORAGE_KEY, storageKey)
-        put(ContentConstants.S3_KEY, storageKey)
-        put(ContentConstants.DURATION, durationStr)
-      }}
-      val updateReq = new Request()
-      updateReq.setOperation("systemUpdate")
-      updateReq.setContext(
-        new util.HashMap[String, AnyRef]() {{
-          put(ContentConstants.GRAPH_ID, "domain")
-          put(ContentConstants.VERSION, "1.0")
-          put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
-          put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
+        val updatePayload = new util.HashMap[String, AnyRef]() {{
           put(ContentConstants.IDENTIFIER, resourceId)
-          put("skipValidation", Boolean.box(true))
-        }}
-      )
-      updateReq.setRequest(updatePayload)
-      systemUpdate(updateReq).flatMap { _ =>
-        val hierarchyUpdates = new util.HashMap[String, AnyRef]() {{
+          put(ContentConstants.VERSION_KEY, versionKey)
           put(ContentConstants.PREVIEW_URL, videoUrl)
           put(ContentConstants.ARTIFACT_URL, videoUrl)
           put(ContentConstants.DOWNLOAD_URL, videoUrl)
@@ -1001,20 +1009,65 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           put(ContentConstants.S3_KEY, storageKey)
           put(ContentConstants.DURATION, durationStr)
         }}
-        val hierarchySyncFuture =
-          if (StringUtils.isNotBlank(courseId))
-            syncHierarchyLeafNode(courseId, resourceId, hierarchyUpdates)
-          else {
-            logger.warn(s"[REPLACE-VIDEO] courseId missing, skipping hierarchy sync for resourceId=$resourceId")
-            Future.successful(())
+        val updateReq = new Request()
+        updateReq.setOperation("systemUpdate")
+        updateReq.setContext(
+          new util.HashMap[String, AnyRef]() {{
+            put(ContentConstants.GRAPH_ID, "domain")
+            put(ContentConstants.VERSION, "1.0")
+            put(ContentConstants.OBJECT_TYPE, ContentConstants.CONTENT_OBJECT_TYPE)
+            put(ContentConstants.SCHEMA_NAME, ContentConstants.CONTENT_SCHEMA_NAME)
+            put(ContentConstants.IDENTIFIER, resourceId)
+            put("skipValidation", Boolean.box(true))
+          }}
+        )
+        updateReq.setRequest(updatePayload)
+        systemUpdate(updateReq).flatMap { _ =>
+          val hierarchyUpdates = new util.HashMap[String, AnyRef]() {{
+            put(ContentConstants.PREVIEW_URL, videoUrl)
+            put(ContentConstants.ARTIFACT_URL, videoUrl)
+            put(ContentConstants.DOWNLOAD_URL, videoUrl)
+            put(ContentConstants.CLOUD_STORAGE_KEY, storageKey)
+            put(ContentConstants.S3_KEY, storageKey)
+            put(ContentConstants.DURATION, durationStr)
+          }}
+          val hierarchySyncFuture =
+            if (StringUtils.isNotBlank(courseId))
+              syncHierarchyLeafNode(courseId, resourceId, hierarchyUpdates)
+            else {
+              logger.warn(s"[REPLACE-VIDEO] courseId missing, skipping hierarchy sync for resourceId=$resourceId")
+              Future.successful(())
+            }
+          hierarchySyncFuture.map { _ =>
+            publishResource(resourceId, lastPublishedBy)
+            ResponseHandler.OK
+              .put(ContentConstants.RESOURCE_ID, resourceId)
+              .put(ContentConstants.COURSE_ID, courseId)
+              .put(ContentConstants.DURATION, durationStr)
           }
-        hierarchySyncFuture.map { _ =>
-          ResponseHandler.OK
-            .put(ContentConstants.RESOURCE_ID, resourceId)
-            .put(ContentConstants.COURSE_ID, courseId)
-            .put(ContentConstants.DURATION, durationStr)
         }
       }
+    }
+  }
+
+  private def publishResource(resourceId: String, publisher: String): Unit = {
+    try {
+      val contentMap = new util.HashMap[String, AnyRef]()
+      contentMap.put(ContentConstants.PUBLISHER, publisher)
+      contentMap.put(ContentConstants.LAST_PUBLISHED_BY, publisher)
+      val requestMap = new util.HashMap[String, AnyRef]()
+      requestMap.put(ContentConstants.CONTENT, contentMap)
+      val wrapperMap = new util.HashMap[String, AnyRef]()
+      wrapperMap.put("request", requestMap)
+      val requestBody = JsonUtils.serialize(wrapperMap)
+      logger.info(s"Publish Request Body: $requestBody")
+      val baseUrl = Platform.getString("vm_learning_service_base_url", "http://localhost:9002/learning-service/")
+      val publishEndpoint = Platform.getString("content_publish_end_point", "content/v3/publish")
+      val url = s"$baseUrl$publishEndpoint/$resourceId"
+      val response = new HttpUtil().post(url, requestBody)
+      logger.info(s"Publish Response: ${response.status}, ${response.body}")
+    } catch {
+      case e: Exception => logger.error(s"Failed to publish resource: $resourceId", e)
     }
   }
 
