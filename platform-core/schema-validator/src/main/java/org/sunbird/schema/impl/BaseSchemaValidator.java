@@ -87,12 +87,7 @@ public abstract class BaseSchemaValidator implements ISchemaValidator {
     }
 
     public ValidationResult validate(Map<String, Object> data) throws Exception {
-        Map<String, Object> validationData = new HashMap<>(data);
-        if (validationData.containsKey("description_for_validation")) {
-            validationData.put("description", validationData.get("description_for_validation"));
-        }
-
-        String dataWithDefaults = withDefaultValues(JsonUtils.serialize(validationData));
+        String dataWithDefaults = withDefaultValues(JsonUtils.serialize(data));
         Map<String, Object> validationDataWithDefaults = cleanEmptyKeys(JsonUtils.deserialize(dataWithDefaults, Map.class));
 
         List<String> messages = validate(new StringReader(JsonUtils.serialize(validationDataWithDefaults)));

@@ -326,23 +326,6 @@ class TestContentActor extends BaseSpec with MockFactory {
         assert(response.getParams.getErrmsg == "Channel id is not matched")
     }
     
-    it should "sanitize rich text description only for validation while preserving the original html" in {
-        implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
-        implicit val ss = mock[StorageService]
-        val actor = new ContentActor()
-        val raw = "<p style=\"color:red\">Hello <script>alert('x')</script><b>world</b></p>"
-        val sanitized = actor.sanitizeDescriptionForValidation(raw)
-        assert(!sanitized.contains("<script"))
-        assert(!sanitized.contains("<b>"))
-        assert(sanitized == "Hello world")
-
-        val request = getContentRequest()
-        request.getRequest.put("description", raw)
-        actor.sanitizeDescriptionInRequest(request)
-        assert(request.getRequest.get("description") == raw)
-        assert(request.getRequest.get("description_for_validation") == "Hello world")
-    }
-
     it should "return success response for 'updateContent'" in {
         implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
         val graphDB = mock[GraphService]

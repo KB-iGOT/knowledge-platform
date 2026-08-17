@@ -35,7 +35,6 @@ import scala.collection.{JavaConverters, Map}
 import scala.concurrent.{ExecutionContext, Future}
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.sunbird.content.upload.mgr.validator.ArtifactUrlValidator
-import org.jsoup.{Jsoup, Safelist}
 
 class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
@@ -89,23 +88,8 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 				}
 		}
 
-	private[actors] def sanitizeDescriptionForValidation(rawDescription: String): String = {
-		if (StringUtils.isBlank(rawDescription)) return rawDescription
-		Jsoup.parse(rawDescription).text().replaceAll("\\s+", " ").trim
-	}
-
-	private[actors] def sanitizeDescriptionInRequest(request: Request): Unit = {
-		val description = request.getRequest.getOrDefault("description", "").asInstanceOf[String]
-		if (StringUtils.isNotBlank(description)) {
-			val sanitizedDescription = sanitizeDescriptionForValidation(description)
-			request.getRequest.put("description_for_validation", sanitizedDescription)
-			request.getRequest.put("description", description)
-		}
-	}
-
 	def create(request: Request): Future[Response] = {
 		populateDefaultersForCreation(request)
-		sanitizeDescriptionInRequest(request)
 		RequestUtil.restrictProperties(request)
 		val artifactUrl: String = request.getRequest.getOrDefault("artifactUrl", "").asInstanceOf[String]
 		if (StringUtils.isNotBlank(artifactUrl) && !ArtifactUrlValidator.isValid(artifactUrl)) {
@@ -254,7 +238,6 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			}
 		}
 		populateDefaultersForUpdation(request)
-		sanitizeDescriptionInRequest(request)
 		if (StringUtils.isBlank(request.getRequest.getOrDefault("versionKey", "").asInstanceOf[String])) throw new ClientException("ERR_INVALID_REQUEST", "Please Provide Version Key!")
 		RequestUtil.restrictProperties(request)
 		val reviewStatus: String = request.getRequest.getOrDefault("reviewStatus", "").asInstanceOf[String]
