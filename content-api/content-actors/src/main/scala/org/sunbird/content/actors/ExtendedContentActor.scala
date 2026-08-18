@@ -1,5 +1,6 @@
 package org.sunbird.content.actors
 
+import akka.pattern.Patterns
 import com.datastax.driver.core.querybuilder.QueryBuilder
 import org.apache.commons.collections4.{CollectionUtils, MapUtils}
 import org.apache.commons.lang3.StringUtils
@@ -836,6 +837,30 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
       ResponseHandler.OK.put("identifier", identifier).put("status", "success")
     })
   }
+
+  // Routes a "systemUpdate" request to the real ContentActor
+  private def dispatchSystemUpdate(request: Request): Future[Response] = {
+    val timeoutMillis = Platform.getLong("actor.timeoutMillisec", 120000L)
+    logger.info(
+      s"[SYSTEM-UPDATE-DISPATCH] operation=${request.getOperation} " +
+      s"context=${request.getContext} body=${request.getRequest}"
+    )
+    Patterns.ask(getContext().actorSelection("/user/contentActor"), request, timeoutMillis)
+      .map(_.asInstanceOf[Response])
+      .map { response =>
+        logger.info(
+          s"[SYSTEM-UPDATE-DISPATCH] responseCode=${response.getResponseCode} " +
+          s"result=${response.getResult} params=${response.getParams}"
+        )
+        if (response.getResponseCode != ResponseCode.OK) {
+          val err = Option(response.getParams).map(_.getErr).getOrElse("ERR_SYSTEM_UPDATE_FAILED")
+          val errmsg = Option(response.getParams).map(_.getErrmsg).getOrElse("systemUpdate failed")
+          throw new ClientException(err, errmsg)
+        }
+        response
+      }
+  }
+
   private val COURSE_ASSESSMENT_CATEGORY = "Course Assessment"
   private val PRACTICE_QUESTION_SET_CATEGORY = "Practice Question Set"
 
@@ -926,6 +951,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           put(ContentConstants.IDENTIFIER, courseId)
           put(ContentConstants.VERSION_KEY, metadata.get(ContentConstants.VERSION_KEY))
           put(ContentConstants.DURATION, durationStr)
+          put(ContentConstants.ROOT_ID, courseId)
         }}
         val updateReq = new Request()
         updateReq.setOperation("systemUpdate")
@@ -940,7 +966,8 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           }}
         )
         updateReq.setRequest(updatePayload)
-        systemUpdate(updateReq).map { _ =>
+        dispatchSystemUpdate(updateReq).map { _ =>
+          RedisCache.delete(hierarchyPrefix + courseId)
           ResponseHandler.OK
             .put(ContentConstants.IDENTIFIER, courseId)
             .put(ContentConstants.DURATION, durationStr)
