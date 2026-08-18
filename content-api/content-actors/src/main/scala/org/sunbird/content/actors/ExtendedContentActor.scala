@@ -951,7 +951,7 @@ class ExtendedContentActor @Inject() (implicit oec: OntologyEngineContext, ss: S
           put(ContentConstants.IDENTIFIER, courseId)
           put(ContentConstants.VERSION_KEY, metadata.get(ContentConstants.VERSION_KEY))
           put(ContentConstants.DURATION, durationStr)
-          put("rootId", courseId)
+          put(ContentConstants.ROOT_ID, courseId)
         }}
         val updateReq = new Request()
         updateReq.setOperation("systemUpdate")
