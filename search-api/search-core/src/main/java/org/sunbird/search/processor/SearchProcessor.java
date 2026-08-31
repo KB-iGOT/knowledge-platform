@@ -32,8 +32,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.sunbird.search.util.SearchConstants.PROGRAM_IDS;
-import static org.sunbird.search.util.SearchConstants.SEARCH_ES_CONN_INFO;
+import static org.sunbird.search.util.SearchConstants.*;
 
 public class SearchProcessor {
 
@@ -294,7 +293,7 @@ public class SearchProcessor {
 			}
 		}
 		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
-		query = applyCoordinatorEligibilityFilter(query, userId, (Boolean) searchDTO.getAdditionalProperty(SearchConstants.BLENDED_PROGRAM_SEARCH));
+		query = applyCoordinatorEligibilityFilter(query, searchDTO);
 		if (searchDTO.isFuzzySearch())
 			relevanceSort = true;
 
@@ -1071,40 +1070,92 @@ public class SearchProcessor {
         return queryBuilder;
     }
 
+	private QueryBuilder applyCoordinatorEligibilityFilter(
+			QueryBuilder query,
+			SearchDTO searchDTO) {
 
-	private QueryBuilder applyCoordinatorEligibilityFilter(QueryBuilder query, String userId, Boolean isBlendedProgramSearch) {
+		String userId = (String) searchDTO.getAdditionalProperty(
+				SearchConstants.USER_ID);
 
+		Boolean isBlendedProgramSearch = (Boolean) searchDTO.getAdditionalProperty(BLENDED_PROGRAM_SEARCH);
 
 		if (!Boolean.TRUE.equals(isBlendedProgramSearch)
 				|| StringUtils.isBlank(userId)) {
 			return query;
 		}
 
-		org.elasticsearch.indices.TermsLookup coordinatorTermsLookup = new org.elasticsearch.indices.TermsLookup(
-				userProgramLookupIndex,
-				SearchConstants.ES_MAPPING_TYPE_DOC,
-				userId,
-				PROGRAM_IDS
-		);
+		List<String> courseCategories = new ArrayList<>();
+		if (CollectionUtils.isNotEmpty(searchDTO.getProperties())) {
+			for (Map property : searchDTO.getProperties()) {
+				Object propertyName = property.get(SearchConstants.propertyName);
+				if (COURSE_CATEGORY.equalsIgnoreCase(String.valueOf(propertyName))) {
+					Object values = property.get(SearchConstants.values);
+					if (values instanceof Collection) {
+						for (Object value : (Collection) values) {
+							if (value != null) {
+								courseCategories.add(value.toString());
+							}
+						}
+					} else if (values != null) {
+						courseCategories.add(values.toString());
+					}
+				}
+			}
+		}
+
+		if (CollectionUtils.isEmpty(courseCategories)) {
+			return query;
+		}
+
+		org.elasticsearch.indices.TermsLookup coordinatorTermsLookup =
+				new org.elasticsearch.indices.TermsLookup(
+						userProgramLookupIndex,
+						SearchConstants.ES_MAPPING_TYPE_DOC,
+						userId,
+						PROGRAM_IDS
+				);
 
 		TermsQueryBuilder coordinatorTermsLookupQuery;
 		try {
 			java.lang.reflect.Constructor<TermsQueryBuilder> constructor =
-					TermsQueryBuilder.class.getConstructor(String.class, org.elasticsearch.indices.TermsLookup.class);
-			coordinatorTermsLookupQuery = constructor.newInstance(
-					SearchConstants.identifier + SearchConstants.RAW_FIELD_EXTENSION, coordinatorTermsLookup);
+					TermsQueryBuilder.class.getConstructor(
+							String.class,
+							org.elasticsearch.indices.TermsLookup.class
+					);
+			coordinatorTermsLookupQuery = constructor.newInstance(identifier + RAW_FIELD_EXTENSION, coordinatorTermsLookup);
 		} catch (Exception e) {
-			throw new RuntimeException("Failed to instantiate TermsQueryBuilder", e);
+			throw new RuntimeException(
+					"Failed to instantiate TermsQueryBuilder", e);
+		}
+		BoolQueryBuilder eligibilityQuery = QueryBuilders.boolQuery();
+		if (courseCategories.stream().anyMatch(category -> BLENDED_PROGRAM.equalsIgnoreCase(category))) {
+			BoolQueryBuilder blendedProgramQuery = QueryBuilders.boolQuery();
+			blendedProgramQuery.filter(QueryBuilders.termQuery(COURSE_CATEGORY + RAW_FIELD_EXTENSION, BLENDED_PROGRAM));
+			blendedProgramQuery.filter(coordinatorTermsLookupQuery);
+			eligibilityQuery.should(blendedProgramQuery);
+		}
+		List<String> nonCoordinatorCategories =
+				courseCategories.stream()
+						.filter(category -> !BLENDED_PROGRAM.equalsIgnoreCase(category))
+						.collect(Collectors.toList());
+
+		if (CollectionUtils.isNotEmpty(nonCoordinatorCategories)) {
+			BoolQueryBuilder nonCoordinatorQuery = QueryBuilders.boolQuery();
+			nonCoordinatorQuery.filter(QueryBuilders.termsQuery(COURSE_CATEGORY + RAW_FIELD_EXTENSION, nonCoordinatorCategories));
+			eligibilityQuery.should(nonCoordinatorQuery);
 		}
 
+		eligibilityQuery.minimumShouldMatch(1);
+
+
 		if (query instanceof BoolQueryBuilder) {
-			((BoolQueryBuilder) query).filter(coordinatorTermsLookupQuery);
+			((BoolQueryBuilder) query).filter(eligibilityQuery);
 			return query;
 		} else {
-			BoolQueryBuilder boolQuery = QueryBuilders.boolQuery();
-			boolQuery.must(query);
-			boolQuery.filter(coordinatorTermsLookupQuery);
-			return boolQuery;
+			BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+			finalQuery.must(query);
+			finalQuery.filter(eligibilityQuery);
+			return finalQuery;
 		}
 	}
 }
