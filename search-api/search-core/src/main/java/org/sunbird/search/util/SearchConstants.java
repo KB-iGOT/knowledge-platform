@@ -151,4 +151,6 @@ public class SearchConstants {
     public static final String SEARCH_ES_CONN_INFO = "search.es_conn_info";
     public static final String PROGRAM_IDS = "programIds";
     public static final String BLENDED_PROGRAM_SEARCH = "blendedProgramSearch";
+    public static final String COURSE_CATEGORY = "courseCategory";
+    public static final String BLENDED_PROGRAM = "Blended Program";
 }
