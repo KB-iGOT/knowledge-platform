@@ -160,6 +160,59 @@ object AssessmentManager {
 		})
 	}
 
+	/**
+	 * Used by questionset/v1/publish. Same entry point as [[validateQuestionSetHierarchy]] but
+	 * additionally checks every child's `createdFor` against the caller's org.
+	 */
+	def validateQuestionSetHierarchyWithOrgCheck(request: Request, hierarchyString: String, rootUserId: String, orgId: String)(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Unit] = {
+		if (skipValidation) {
+			Future.successful(())
+		} else {
+			val hierarchy = if (!hierarchyString.asInstanceOf[String].isEmpty) {
+				JsonUtils.deserialize(hierarchyString.asInstanceOf[String], classOf[java.util.Map[String, AnyRef]])
+			} else
+				new java.util.HashMap[String, AnyRef]()
+			val children = hierarchy.getOrDefault("children", new util.ArrayList[java.util.Map[String, AnyRef]]).asInstanceOf[util.List[util.Map[String, AnyRef]]]
+			validateChildrenRecursiveWithOrgCheck(request, children, rootUserId, orgId)
+		}
+	}
+
+	/**
+	 * Same liveness/ownership check as [[validateChildrenRecursive]], plus an external validation:
+	 * for every child, its own Neo4j node is re-fetched (the hierarchy blob from Cassandra does not
+	 * carry `createdFor`) and its `createdFor` list must contain the caller's org - otherwise the
+	 * publish is rejected with ERR_QUESTION_SET_ORG_MISMATCH. Async because of that per-child read,
+	 * so unlike validateChildrenRecursive this returns a Future rather than throwing inline only.
+	 */
+	private def validateChildrenRecursiveWithOrgCheck(request: Request, children: util.List[util.Map[String, AnyRef]], rootUserId: String, orgId: String)(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Unit] = {
+		val checks: List[Future[Unit]] = children.toList.map(content => {
+			if ((StringUtils.equalsAnyIgnoreCase(content.getOrDefault("visibility", "").asInstanceOf[String], "Default")
+			  && !StringUtils.equals(rootUserId, content.getOrDefault("createdBy", "").asInstanceOf[String]))
+			  && !StringUtils.equalsIgnoreCase(content.getOrDefault("status", "").asInstanceOf[String], "Live"))
+				throw new ClientException("ERR_QUESTION_SET", "Object with identifier: " + content.get("identifier") + " is not Live. Please Publish it.")
+
+			val childIdentifier = content.getOrDefault("identifier", "").asInstanceOf[String]
+			val childObjectType = content.getOrDefault("objectType", "Question").asInstanceOf[String]
+			val childSchemaName = childObjectType.toLowerCase.replace("image", "")
+
+			// External validation: the hierarchy blob doesn't carry createdFor, so read the
+			// child's own node fresh from Neo4j and check it there.
+			val readRequest = new Request(request)
+			readRequest.getContext.put("schemaName", childSchemaName)
+			readRequest.put("identifier", childIdentifier)
+			readRequest.put("mode", "read")
+			DataNode.read(readRequest).flatMap(childNode => {
+				val createdFor = childNode.getMetadata.getOrDefault("createdFor", new util.ArrayList[String]()).asInstanceOf[util.List[String]]
+				if (StringUtils.isBlank(orgId) || null == createdFor || !createdFor.contains(orgId))
+					throw new ClientException("ERR_QUESTION_SET_ORG_MISMATCH",
+						s"Object with identifier: $childIdentifier is not createdFor the requesting organisation.")
+				val nestedChildren = content.getOrDefault("children", new util.ArrayList[util.Map[String, AnyRef]]()).asInstanceOf[util.List[util.Map[String, AnyRef]]]
+				validateChildrenRecursiveWithOrgCheck(request, nestedChildren, rootUserId, orgId)
+			})
+		})
+		Future.sequence(checks).map(_ => ())
+	}
+
 	def getChildIdsFromRelation(node: Node): (List[String], List[String]) = {
 		val outRelations: List[Relation] = if (node.getOutRelations != null) node.getOutRelations.asScala.toList else List[Relation]()
 		val visibilityIdMap: Map[String, List[String]] = outRelations
