@@ -163,15 +163,20 @@ object AssessmentManager {
 	/**
 	 * Used by ca/questionset/v1/publish. Checks the QuestionSet's own `createdFor` (already
 	 * loaded on `node` by [[getValidatedNodeForPublish]], no extra read) against the caller's org.
+	 *
+	 * Deliberately NOT gated behind `skipValidation` - that flag exists to bypass the expensive
+	 * recursive hierarchy/liveness traversal (see [[validateQuestionSetHierarchy]]), not to bypass
+	 * an authorization check. This is a single in-memory field check, so there's no cost to skip.
 	 */
 	def getValidatedNodeForPublishWithOrgCheck(request: Request, orgId: String, errCode: String)(implicit ec: ExecutionContext, oec: OntologyEngineContext): Future[Node] = {
 		getValidatedNodeForPublish(request, errCode).map(node => {
-			if (!skipValidation) {
-				val createdFor = node.getMetadata.getOrDefault("createdFor", new util.ArrayList[String]()).asInstanceOf[util.List[String]]
-				if (StringUtils.isBlank(orgId) || null == createdFor || !createdFor.contains(orgId))
-					throw new ClientException("ERR_QUESTION_SET_ORG_MISMATCH",
-						s"QuestionSet with identifier: ${node.getIdentifier} is not createdFor the requesting organisation.")
-			}
+			val createdForRaw = node.getMetadata.getOrDefault("createdFor", new util.ArrayList[String]())
+			val createdFor: util.List[String] = if (createdForRaw.isInstanceOf[Array[String]]) createdForRaw.asInstanceOf[Array[String]].toList.asJava
+				else if (createdForRaw.isInstanceOf[util.List[String]]) createdForRaw.asInstanceOf[util.List[String]]
+				else new util.ArrayList[String]()
+			if (StringUtils.isBlank(orgId) || createdFor.isEmpty || !createdFor.contains(orgId))
+				throw new ClientException("ERR_QUESTION_SET_ORG_MISMATCH",
+					s"QuestionSet with identifier: ${node.getIdentifier} is not createdFor the requesting organisation.")
 			node
 		})
 	}
