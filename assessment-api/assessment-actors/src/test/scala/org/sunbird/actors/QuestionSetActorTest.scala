@@ -286,6 +286,94 @@ class QuestionSetActorTest extends BaseSpec with MockFactory {
         assert("successful".equals(response.getParams.getStatus))
     }
 
+    it should "return success response for 'publishQuestionSetOrgScoped' when createdFor is a List containing the caller's org" in {
+        implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
+        val graphDB = mock[GraphService]
+        val kfClient = mock[KafkaClient]
+        (oec.kafkaClient _).expects().returns(kfClient).anyNumberOfTimes()
+        (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
+        val node = getNode("do_11348469558523494411","QuestionSet", None)
+        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+            "visibility" -> "Default",
+            "code" -> "finemanfine",
+            "mimeType" -> "application/vnd.sunbird.questionset",
+            "createdBy" -> "g-001",
+            "createdFor" -> List("dopt").asJava,
+            "primaryCategory" -> "Practice Question Set")))
+        val nodeList = new util.ArrayList[Node]() {{
+            add(getNode("do_11348469662446387212","Question", Some(Map("visibility"-> "Parent", "createdBy"-> "g-001"))))
+            add(getNode("do_11348469662607769614","Question", Some(Map("visibility"-> "Default", "createdBy"-> "g-002"))))
+        }}
+        (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
+        (graphDB.getNodeByUniqueIds(_ :String, _: SearchCriteria)).expects(*, *).returns(Future(nodeList)).atLeastOnce()
+        (graphDB.readExternalProps(_: Request, _: List[String])).expects(*, *).returns(Future(getDraftCassandraHierarchy)).anyNumberOfTimes
+        (kfClient.send(_: String, _: String)).expects(*, *).once()
+        val request = getQuestionSetRequest()
+        request.getContext.put("identifier", "do1234")
+        request.getContext.put("orgId", "dopt")
+        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.setOperation("publishQuestionSetOrgScoped")
+        val response = callActor(request, Props(new QuestionSetActor()))
+        assert("successful".equals(response.getParams.getStatus))
+    }
+
+    it should "return success response for 'publishQuestionSetOrgScoped' when createdFor is a raw String array containing the caller's org" in {
+        // Regression test: Node metadata read directly off the graph can surface multi-valued
+        // properties as a native String[] rather than a java.util.List - a blind
+        // asInstanceOf[util.List[String]] cast on that throws ClassCastException in production.
+        implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
+        val graphDB = mock[GraphService]
+        val kfClient = mock[KafkaClient]
+        (oec.kafkaClient _).expects().returns(kfClient).anyNumberOfTimes()
+        (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
+        val node = getNode("do_11348469558523494411","QuestionSet", None)
+        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+            "visibility" -> "Default",
+            "code" -> "finemanfine",
+            "mimeType" -> "application/vnd.sunbird.questionset",
+            "createdBy" -> "g-001",
+            "createdFor" -> Array("dopt"),
+            "primaryCategory" -> "Practice Question Set")))
+        val nodeList = new util.ArrayList[Node]() {{
+            add(getNode("do_11348469662446387212","Question", Some(Map("visibility"-> "Parent", "createdBy"-> "g-001"))))
+            add(getNode("do_11348469662607769614","Question", Some(Map("visibility"-> "Default", "createdBy"-> "g-002"))))
+        }}
+        (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
+        (graphDB.getNodeByUniqueIds(_ :String, _: SearchCriteria)).expects(*, *).returns(Future(nodeList)).atLeastOnce()
+        (graphDB.readExternalProps(_: Request, _: List[String])).expects(*, *).returns(Future(getDraftCassandraHierarchy)).anyNumberOfTimes
+        (kfClient.send(_: String, _: String)).expects(*, *).once()
+        val request = getQuestionSetRequest()
+        request.getContext.put("identifier", "do1234")
+        request.getContext.put("orgId", "dopt")
+        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.setOperation("publishQuestionSetOrgScoped")
+        val response = callActor(request, Props(new QuestionSetActor()))
+        assert("successful".equals(response.getParams.getStatus))
+    }
+
+    it should "return client error for 'publishQuestionSetOrgScoped' when createdFor does not contain the caller's org" in {
+        implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
+        val graphDB = mock[GraphService]
+        (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
+        val node = getNode("do_11348469558523494411","QuestionSet", None)
+        node.getMetadata.putAll(mapAsJavaMap(Map("name" -> "question_1",
+            "visibility" -> "Default",
+            "code" -> "finemanfine",
+            "mimeType" -> "application/vnd.sunbird.questionset",
+            "createdBy" -> "g-001",
+            "createdFor" -> List("someOtherOrg").asJava,
+            "primaryCategory" -> "Practice Question Set")))
+        (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, *, *, *).returns(Future(node)).atLeastOnce()
+        val request = getQuestionSetRequest()
+        request.getContext.put("identifier", "do1234")
+        request.getContext.put("orgId", "dopt")
+        request.putAll(mapAsJavaMap(Map("versionKey" -> "1234", "description" -> "updated desc")))
+        request.setOperation("publishQuestionSetOrgScoped")
+        val response = callActor(request, Props(new QuestionSetActor()))
+        assert(response.getResponseCode == ResponseCode.CLIENT_ERROR)
+        assert(response.getParams.getErr == "ERR_QUESTION_SET_ORG_MISMATCH")
+    }
+
     it should "return success response for 'addQuestion'" in {
         implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
         val graphDB = mock[GraphService]
