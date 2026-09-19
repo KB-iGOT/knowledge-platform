@@ -12,8 +12,8 @@ import scala.concurrent.ExecutionContext
  * v1 QuestionSet API's.
  *
  * Currently holds only `publish`, which behaves like [[controllers.v4.QuestionSetController.publish]]
- * with one addition: every child in the hierarchy is also checked against the caller's
- * organisation (see AssessmentManager.validateQuestionSetHierarchyWithOrgCheck).
+ * with one addition: the QuestionSet's own `createdFor` is also checked against the caller's
+ * organisation (see AssessmentManager.getValidatedNodeForPublishWithOrgCheck).
  */
 class QuestionSetController @Inject()(@Named(ActorNames.QUESTION_SET_ACTOR) questionSetActor: ActorRef, cc: ControllerComponents)(implicit exec: ExecutionContext) extends BaseController(cc) {
 

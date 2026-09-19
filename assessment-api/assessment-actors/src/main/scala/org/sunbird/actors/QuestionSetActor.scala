@@ -97,25 +97,24 @@ class QuestionSetActor @Inject()(implicit oec: OntologyEngineContext) extends Ba
 	}
 
 	/**
-	 * v1 org-scoped publish (questionset/v1/publish/:identifier).
+	 * v1 org-scoped publish (ca/questionset/v1/publish/:identifier).
 	 *
-	 * Identical to [[publish]] except it additionally validates every hierarchy child's
-	 * `createdFor` (read fresh from its own Neo4j node) against the caller's org, taken from
-	 * the `x-authenticated-user-orgid` header (set on the request context as "orgId" by the
-	 * v1 controller). See AssessmentManager.validateQuestionSetHierarchyWithOrgCheck.
+	 * Identical to [[publish]] - same hierarchy validation, no per-child Neo4j re-reads -
+	 * except it additionally checks the QuestionSet's own `createdFor` against the caller's
+	 * org, taken from the `x-authenticated-user-orgid` header (set on the request context as
+	 * "orgId" by the v1 controller). See AssessmentManager.getValidatedNodeForPublishWithOrgCheck.
 	 */
 	def publishOrgScoped(request: Request): Future[Response] = {
 		request.getRequest.put("identifier", request.getContext.get("identifier"))
 		request.put("mode", "edit")
 		val orgId = request.getContext.getOrDefault("orgId", "").asInstanceOf[String]
-		AssessmentManager.getValidatedNodeForPublish(request, "ERR_QUESTION_SET_PUBLISH").flatMap(node => {
-			AssessmentManager.getQuestionSetHierarchy(request, node).flatMap(hierarchyString => {
-				AssessmentManager.validateQuestionSetHierarchyWithOrgCheck(request, hierarchyString.asInstanceOf[String], node.getMetadata.getOrDefault("createdBy", "").asInstanceOf[String], orgId).map(_ => {
-					logger.info("QuestionSetActor:publishOrgScoped - Before pushInstructionEvent for identifier: " + node.getIdentifier)
-					AssessmentManager.pushInstructionEvent(node.getIdentifier, node)
-					logger.info("QuestionSetActor:publishOrgScoped - After pushInstructionEvent for identifier: " + node.getIdentifier)
-					ResponseHandler.OK.putAll(Map[String, AnyRef]("identifier" -> node.getIdentifier.replace(".img", ""), "message" -> "QuestionSet is successfully sent for Publish").asJava)
-				})
+		AssessmentManager.getValidatedNodeForPublishWithOrgCheck(request, orgId, "ERR_QUESTION_SET_PUBLISH").flatMap(node => {
+			AssessmentManager.getQuestionSetHierarchy(request, node).map(hierarchyString => {
+				AssessmentManager.validateQuestionSetHierarchy(hierarchyString.asInstanceOf[String], node.getMetadata.getOrDefault("createdBy", "").asInstanceOf[String])
+				logger.info("QuestionSetActor:publishOrgScoped - Before pushInstructionEvent for identifier: " + node.getIdentifier)
+				AssessmentManager.pushInstructionEvent(node.getIdentifier, node)
+				logger.info("QuestionSetActor:publishOrgScoped - After pushInstructionEvent for identifier: " + node.getIdentifier)
+				ResponseHandler.OK.putAll(Map[String, AnyRef]("identifier" -> node.getIdentifier.replace(".img", ""), "message" -> "QuestionSet is successfully sent for Publish").asJava)
 			})
 		})
 	}
