@@ -44,3 +44,8 @@ POST      /questionset/v4/list                       controllers.v4.QuestionSetC
 # QuestionSet API's - v1 (org-scoped publish: validates each hierarchy child's createdFor
 # against the caller's x-authenticated-user-orgid header before publishing)
 POST      /ca/questionset/v1/publish/:identifier     controllers.v1.QuestionSetController.publish(identifier:String)
+
+# CA entry points with no behavioral difference from v4 - routed straight at the v4 controller,
+# no wrapper needed.
+POST      /ca/questionset/v1/create                  controllers.v4.QuestionSetController.create
+PATCH     /ca/questionset/v1/hierarchy/update         controllers.v4.QuestionSetController.updateHierarchy
