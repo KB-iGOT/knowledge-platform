@@ -99,9 +99,9 @@ DELETE    /content/v4/discard/:identifier          controllers.v4.ContentControl
 DELETE    /content/v4/retire/:identifier           controllers.v4.ContentController.retire(identifier:String)
 PATCH     /content/v4/system/update/:identifier    controllers.v4.ContentController.systemUpdate(identifier:String)
 
-# CA entry point with no behavioral difference from v4 - routed straight at the v4 controller,
+# CA entry point with no behavioral difference from v3 - routed straight at the v3 controller,
 # no wrapper needed.
-POST      /content/ca/v1/create                     controllers.v4.ContentController.create
+POST      /content/ca/v1/create                     controllers.v3.ContentController.create
 
 POST      /content/v4/review/:identifier           controllers.v4.ContentController.review(identifier:String)
 POST      /content/v4/reject/:identifier           controllers.v4.ContentController.reviewReject(identifier:String)
