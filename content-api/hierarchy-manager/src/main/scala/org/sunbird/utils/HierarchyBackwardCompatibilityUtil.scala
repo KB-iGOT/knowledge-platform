@@ -16,7 +16,7 @@ object HierarchyBackwardCompatibilityUtil {
         new util.HashMap[String, AnyRef]()).asInstanceOf[java.util.Map[String, AnyRef]]
     val categoryMapForResourceType: java.util.Map[String, AnyRef] = Platform.getAnyRef("resourceTypeToPrimaryCategory",
         new util.HashMap[String, AnyRef]()).asInstanceOf[java.util.Map[String, AnyRef]]
-    val mimeTypesToCheck = List("application/vnd.ekstep.h5p-archive", "application/vnd.ekstep.html-archive", "application/vnd.android.package-archive",
+    val mimeTypesToCheck = List("application/vnd.ekstep.h5p-archive", "application/vnd.ekstep.html-archive", "application/vnd.ekstep.html", "application/vnd.android.package-archive",
         "video/webm", "video/x-youtube", "video/mp4")
     val objectTypes = List("Content", "Collection")
 

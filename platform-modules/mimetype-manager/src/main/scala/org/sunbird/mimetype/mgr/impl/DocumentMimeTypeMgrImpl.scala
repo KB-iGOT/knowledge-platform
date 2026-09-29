@@ -66,6 +66,10 @@ class DocumentMimeTypeMgrImpl(implicit ss: StorageService) extends BaseMimeTypeM
 				if (!(StringUtils.isNotBlank(fileExt) && ALLOWED_EXTENSIONS_WORD.contains(fileExt)))
 					throw new ClientException("ERR_INVALID_FILE", "Uploaded file is not a word file. Please upload a valid word file.")
 			}
+			case "application/vnd.ekstep.html" => {
+				if (!(StringUtils.equalsAnyIgnoreCase(fileExt, "html", "htm") && StringUtils.equalsIgnoreCase("text/html", fileType)))
+					throw new ClientException("ERR_INVALID_FILE", "Uploaded file is not a html file. Please upload a valid html file.")
+			}
 		}
 	}
 
@@ -83,6 +87,10 @@ class DocumentMimeTypeMgrImpl(implicit ss: StorageService) extends BaseMimeTypeM
 			case "application/msword" => {
 				if (!(StringUtils.isNotBlank(fileExt) && ALLOWED_EXTENSIONS_WORD.contains(fileExt)))
 					throw new ClientException("ERR_INVALID_FILE_URL", "Please Provide Valid Document File Url!")
+			}
+			case "application/vnd.ekstep.html" => {
+				if (!StringUtils.equalsAnyIgnoreCase(fileExt, "html", "htm"))
+					throw new ClientException("ERR_INVALID_FILE_URL", "Please Provide Valid Html File Url!")
 			}
 		}
 	}
