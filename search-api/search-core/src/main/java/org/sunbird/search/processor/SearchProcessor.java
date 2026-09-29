@@ -1,5 +1,6 @@
 package org.sunbird.search.processor;
 
+import akka.dispatch.Futures;
 import akka.dispatch.Mapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +24,7 @@ import org.sunbird.common.Platform;
 import org.sunbird.search.client.ElasticSearchUtil;
 import org.sunbird.search.dto.SearchDTO;
 import org.sunbird.search.transformers.AggregationsResultTransformer;
+import org.sunbird.search.util.SearchCache;
 import org.sunbird.search.util.SearchConstants;
 import org.sunbird.telemetry.logger.TelemetryManager;
 import scala.concurrent.ExecutionContext;
@@ -83,6 +85,41 @@ public class SearchProcessor {
 			query.query(mainQuery);
 		}
 
+		boolean isCategoryRestricted = false;
+
+		if (CollectionUtils.isNotEmpty(searchDTO.getProperties())) {
+			List<String> restrictedCategories = Platform.getStringList(SearchConstants.ORG_RESTRICTED_CATEGORIES, new ArrayList<String>());
+
+			for (Map property : searchDTO.getProperties()) {
+				if (!SearchConstants.courseCategory.equals(property.get(SearchConstants.propertyName))) {
+					continue;
+				}
+
+				Object values = property.get(SearchConstants.values);
+				if (values instanceof List) {isCategoryRestricted = ((List<?>) values).stream()
+							.anyMatch(value -> restrictedCategories.stream().anyMatch(rc -> rc.equalsIgnoreCase(String.valueOf(value))));
+				}
+				break;
+			}
+		}
+
+		String requestBody = (String) searchDTO.getAdditionalProperty(SearchConstants.REQUEST_BODY);
+		String cacheOrgId = isCategoryRestricted ? (String) searchDTO.getAdditionalProperty(SearchConstants.ORG) : null;
+
+		final String cacheKey = SearchCache.isEnable() && SearchCache.isCacheable(searchDTO.getLimit())
+				? SearchCache.getKey(cacheOrgId, requestBody) : null;
+
+		if (cacheKey != null) {
+			String cached = SearchCache.get(cacheKey);
+			if (StringUtils.isNotBlank(cached)) {
+				try {
+					return Futures.successful((Map<String, Object>) mapper.readValue(cached, Map.class));
+				} catch (Exception e) {
+					TelemetryManager.error("Error while reading search cache for key: " + cacheKey, e);
+				}
+			}
+		}
+
 		searchResponse = ElasticSearchUtil.search(SearchConstants.COMPOSITE_SEARCH_INDEX, query);
 
 		return searchResponse.map(new Mapper<SearchResponse, Map<String, Object>>() {
@@ -107,7 +144,14 @@ public class SearchProcessor {
 						resp.put("aggregations", aggregateResult(aggregations));
 					}
 				}
-				resp.put("count", (int) searchResult.getHits().getTotalHits());
+				resp.put(SearchConstants.count, (int) searchResult.getHits().getTotalHits());
+				if (cacheKey != null) {
+					try {
+						SearchCache.setAsync(cacheKey, mapper.writeValueAsString(resp));
+					} catch (Exception e) {
+						TelemetryManager.error("Error while saving search cache for key: " + cacheKey, e);
+					}
+				}
 				return resp;
 			}
 		}, ExecutionContext.Implicits$.MODULE$.global());

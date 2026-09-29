@@ -151,4 +151,21 @@ public class SearchConstants {
     public static final String SEARCH_ES_CONN_INFO = "search.es_conn_info";
     public static final String PROGRAM_IDS = "programIds";
     public static final String BLENDED_PROGRAM_SEARCH = "blendedProgramSearch";
+    public static final String CREATED_FOR = "createdFor";
+    public static final String REQUEST_BODY = "requestBody";
+    public static final String courseCategory = "courseCategory";
+    public static final String count = "count";
+    public static final String ORG_RESTRICTED_CATEGORIES = "search.org.restricted.categories";
+    public static final String SEARCH_REDIS_ENABLE = "search.redis.enable";
+    public static final String SEARCH_REDIS_HOST = "search.redis.host";
+    public static final String SEARCH_REDIS_HOST_DEFAULT = "localhost";
+    public static final String SEARCH_REDIS_PORT = "search.redis.port";
+    public static final int SEARCH_REDIS_PORT_DEFAULT = 6379;
+    public static final String SEARCH_REDIS_DB_INDEX = "search.redis.dbIndex";
+    public static final int SEARCH_REDIS_DB_INDEX_DEFAULT = 0;
+    public static final String SEARCH_REDIS_TTL = "search.redis.ttl";
+    public static final int SEARCH_REDIS_TTL_DEFAULT = 300;
+    public static final String SEARCH_REDIS_MAX_CACHEABLE_LIMIT = "search.redis.max.cacheable.limit";
+    public static final int SEARCH_REDIS_MAX_CACHEABLE_LIMIT_DEFAULT = 200;
+    public static final String SEARCH_CACHE_KEY_PREFIX = "v5search:";
 }
