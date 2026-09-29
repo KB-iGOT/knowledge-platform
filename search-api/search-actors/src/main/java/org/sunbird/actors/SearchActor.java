@@ -324,6 +324,7 @@ public class SearchActor extends SearchBaseActor {
             if (fuzzySearch != null) {
                 searchObj.setFuzzySearch(fuzzySearch);
             }
+            searchObj.addAdditionalProperty(SearchConstants.REQUEST_BODY, JsonUtils.serialize(req));
         } catch (ClassCastException e) {
             e.printStackTrace();
             throw new ClientException(SearchConstants.ERR_COMPOSITE_SEARCH_INVALID_PARAMS,
@@ -607,6 +608,25 @@ public class SearchActor extends SearchBaseActor {
         if (request != null && !StringUtils.equalsIgnoreCase((String) request.getContext().getOrDefault("setDefaultVisibility",""),"false")  && setDefaultVisibility(filters)) {
             Map<String, Object> property = getFilterProperty("visibility", SearchConstants.SEARCH_OPERATION_EQUAL, Arrays.asList(new String[] { "Default" }));
             properties.add(property);
+        }
+
+        Object courseCategory = filters.get(SearchConstants.courseCategory);
+        if (courseCategory instanceof String || courseCategory instanceof List) {
+            List<String> categoryValues = courseCategory instanceof List ? (List<String>) courseCategory : Arrays.asList((String) courseCategory);
+            List<String> restrictedCategories = Platform.getStringList(SearchConstants.ORG_RESTRICTED_CATEGORIES, new ArrayList<String>());
+            boolean isRestricted = categoryValues.stream().anyMatch(value -> restrictedCategories.stream().anyMatch(value::equalsIgnoreCase));
+            if (isRestricted) {
+                String orgId = (request != null) ? (String) request.getContext().get(SearchConstants.ORG) : null;
+                // Token orgId always takes precedence for restricted categories, replacing any client-provided createdFor.
+                properties.removeIf(property -> SearchConstants.CREATED_FOR.equals(property.get(SearchConstants.propertyName)));
+                if (StringUtils.isNotBlank(orgId)) {
+                    filters.put(SearchConstants.CREATED_FOR, Arrays.asList(orgId));
+                    properties.add(getFilterProperty(SearchConstants.CREATED_FOR, SearchConstants.SEARCH_OPERATION_EQUAL, Arrays.asList(orgId)));
+                } else {
+                    filters.put(SearchConstants.CREATED_FOR, Arrays.asList(""));
+                    properties.add(getFilterProperty(SearchConstants.CREATED_FOR, SearchConstants.SEARCH_OPERATION_EQUAL, Arrays.asList("")));
+                }
+            }
         }
         return properties;
     }
