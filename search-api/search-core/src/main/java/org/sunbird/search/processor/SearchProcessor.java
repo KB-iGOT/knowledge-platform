@@ -106,7 +106,9 @@ public class SearchProcessor {
 		String requestBody = (String) searchDTO.getAdditionalProperty(SearchConstants.REQUEST_BODY);
 		String cacheOrgId = isCategoryRestricted ? (String) searchDTO.getAdditionalProperty(SearchConstants.ORG) : null;
 
-		final String cacheKey = SearchCache.isEnable() && SearchCache.isCacheable(searchDTO.getLimit())
+		boolean isV5 = StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V5, (String) searchDTO.getAdditionalProperty(SearchConstants.API_VERSION));
+
+		final String cacheKey = isV5 && SearchCache.isEnable() && SearchCache.isCacheable(searchDTO.getLimit())
 				? SearchCache.getKey(cacheOrgId, requestBody) : null;
 
 		if (cacheKey != null) {
