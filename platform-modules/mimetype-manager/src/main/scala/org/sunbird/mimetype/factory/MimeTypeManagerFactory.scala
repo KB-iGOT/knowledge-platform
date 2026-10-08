@@ -17,7 +17,7 @@ object MimeTypeManagerFactory {
 		"video/youtube" -> new YouTubeMimeTypeMgrImpl,"video/x-youtube" -> new YouTubeMimeTypeMgrImpl,
 		"text/x-url" -> new YouTubeMimeTypeMgrImpl,
 		"application/pdf" -> new DocumentMimeTypeMgrImpl, "application/epub" -> new DocumentMimeTypeMgrImpl,
-		"application/msword" -> new DocumentMimeTypeMgrImpl,
+		"application/msword" -> new DocumentMimeTypeMgrImpl, "application/vnd.ekstep.html" -> new DocumentMimeTypeMgrImpl,
 	    "assets" -> new AssetMimeTypeMgrImpl,
 		"application/vnd.ekstep.ecml-archive" -> new EcmlMimeTypeMgrImpl,
 		"application/vnd.ekstep.html-archive" -> new HtmlMimeTypeMgrImpl,
