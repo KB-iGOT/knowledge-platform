@@ -1,5 +1,6 @@
 package org.sunbird.search.processor;
 
+import akka.dispatch.Futures;
 import akka.dispatch.Mapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +24,7 @@ import org.sunbird.common.Platform;
 import org.sunbird.search.client.ElasticSearchUtil;
 import org.sunbird.search.dto.SearchDTO;
 import org.sunbird.search.transformers.AggregationsResultTransformer;
+import org.sunbird.search.util.SearchCache;
 import org.sunbird.search.util.SearchConstants;
 import org.sunbird.telemetry.logger.TelemetryManager;
 import scala.concurrent.ExecutionContext;
@@ -82,7 +84,7 @@ public class SearchProcessor {
 			mainQuery.filter(getPostFilterQuery(searchDTO.getPostFilter())); // Apply filtering for aggregations
 			query.query(mainQuery);
 		}
-
+				
 		searchResponse = ElasticSearchUtil.search(SearchConstants.COMPOSITE_SEARCH_INDEX, query);
 
 		return searchResponse.map(new Mapper<SearchResponse, Map<String, Object>>() {
@@ -107,7 +109,7 @@ public class SearchProcessor {
 						resp.put("aggregations", aggregateResult(aggregations));
 					}
 				}
-				resp.put("count", (int) searchResult.getHits().getTotalHits());
+				resp.put(SearchConstants.count, (int) searchResult.getHits().getTotalHits());
 				return resp;
 			}
 		}, ExecutionContext.Implicits$.MODULE$.global());
@@ -292,6 +294,20 @@ public class SearchProcessor {
 				boolQuery.filter(termsLookupQuery);
 				query = boolQuery;
 			}
+		}
+		List<String> restricted = Platform.getStringList(SearchConstants.ORG_RESTRICTED_CATEGORIES, Collections.<String>emptyList())
+				.stream().map(String::toLowerCase).collect(Collectors.toList());
+		if (StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V5, apiVersion) && CollectionUtils.isNotEmpty(restricted)) {
+			// Non restricted courses are always visible. A restricted course is visible only to the token org:
+			// created for it (createdFor), or shared with it (secureSettings.organisation). No token org => restricted courses are hidden.
+			BoolQueryBuilder orgFilter = QueryBuilders.boolQuery().minimumShouldMatch(1)
+					.should(QueryBuilders.boolQuery().mustNot(QueryBuilders.termsQuery(SearchConstants.courseCategory + SearchConstants.RAW_FIELD_EXTENSION, restricted)));
+			if (StringUtils.isNotBlank(orgId)) {
+				orgFilter.should(QueryBuilders.termQuery(SearchConstants.CREATED_FOR + SearchConstants.RAW_FIELD_EXTENSION, orgId))
+						.should(QueryBuilders.nestedQuery(SearchConstants.secureSettings,
+								QueryBuilders.termQuery(SearchConstants.secureSettingsOrganisation, orgId), ScoreMode.None));
+			}
+			query = QueryBuilders.boolQuery().must(query).filter(orgFilter);
 		}
 		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
 		query = applyCoordinatorEligibilityFilter(query, userId, (Boolean) searchDTO.getAdditionalProperty(SearchConstants.BLENDED_PROGRAM_SEARCH));
