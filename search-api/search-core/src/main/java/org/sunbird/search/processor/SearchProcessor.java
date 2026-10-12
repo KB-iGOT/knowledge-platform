@@ -1,6 +1,5 @@
 package org.sunbird.search.processor;
 
-import akka.dispatch.Futures;
 import akka.dispatch.Mapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,7 +23,6 @@ import org.sunbird.common.Platform;
 import org.sunbird.search.client.ElasticSearchUtil;
 import org.sunbird.search.dto.SearchDTO;
 import org.sunbird.search.transformers.AggregationsResultTransformer;
-import org.sunbird.search.util.SearchCache;
 import org.sunbird.search.util.SearchConstants;
 import org.sunbird.telemetry.logger.TelemetryManager;
 import scala.concurrent.ExecutionContext;
@@ -85,43 +83,6 @@ public class SearchProcessor {
 			query.query(mainQuery);
 		}
 
-		boolean isCategoryRestricted = false;
-
-		if (CollectionUtils.isNotEmpty(searchDTO.getProperties())) {
-			List<String> restrictedCategories = Platform.getStringList(SearchConstants.ORG_RESTRICTED_CATEGORIES, new ArrayList<String>());
-
-			for (Map property : searchDTO.getProperties()) {
-				if (!SearchConstants.courseCategory.equals(property.get(SearchConstants.propertyName))) {
-					continue;
-				}
-
-				Object values = property.get(SearchConstants.values);
-				if (values instanceof List) {isCategoryRestricted = ((List<?>) values).stream()
-							.anyMatch(value -> restrictedCategories.stream().anyMatch(rc -> rc.equalsIgnoreCase(String.valueOf(value))));
-				}
-				break;
-			}
-		}
-
-		String requestBody = (String) searchDTO.getAdditionalProperty(SearchConstants.REQUEST_BODY);
-		String cacheOrgId = isCategoryRestricted ? (String) searchDTO.getAdditionalProperty(SearchConstants.ORG) : null;
-
-		boolean isV5 = StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V5, (String) searchDTO.getAdditionalProperty(SearchConstants.API_VERSION));
-
-		final String cacheKey = isV5 && SearchCache.isEnable() && SearchCache.isCacheable(searchDTO.getLimit())
-				? SearchCache.getKey(cacheOrgId, requestBody) : null;
-
-		if (cacheKey != null) {
-			String cached = SearchCache.get(cacheKey);
-			if (StringUtils.isNotBlank(cached)) {
-				try {
-					return Futures.successful((Map<String, Object>) mapper.readValue(cached, Map.class));
-				} catch (Exception e) {
-					TelemetryManager.error("Error while reading search cache for key: " + cacheKey, e);
-				}
-			}
-		}
-
 		searchResponse = ElasticSearchUtil.search(SearchConstants.COMPOSITE_SEARCH_INDEX, query);
 
 		return searchResponse.map(new Mapper<SearchResponse, Map<String, Object>>() {
@@ -147,13 +108,6 @@ public class SearchProcessor {
 					}
 				}
 				resp.put(SearchConstants.count, (int) searchResult.getHits().getTotalHits());
-				if (cacheKey != null) {
-					try {
-						SearchCache.setAsync(cacheKey, mapper.writeValueAsString(resp));
-					} catch (Exception e) {
-						TelemetryManager.error("Error while saving search cache for key: " + cacheKey, e);
-					}
-				}
 				return resp;
 			}
 		}, ExecutionContext.Implicits$.MODULE$.global());
@@ -338,6 +292,20 @@ public class SearchProcessor {
 				boolQuery.filter(termsLookupQuery);
 				query = boolQuery;
 			}
+		}
+		List<String> restricted = Platform.getStringList(SearchConstants.ORG_RESTRICTED_CATEGORIES, Collections.<String>emptyList())
+				.stream().map(String::toLowerCase).collect(Collectors.toList());
+		if (StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V5, apiVersion) && CollectionUtils.isNotEmpty(restricted)) {
+			// Non restricted courses are always visible. A restricted course is visible only to the token org:
+			// created for it (createdFor), or shared with it (secureSettings.organisation). No token org => restricted courses are hidden.
+			BoolQueryBuilder orgFilter = QueryBuilders.boolQuery().minimumShouldMatch(1)
+					.should(QueryBuilders.boolQuery().mustNot(QueryBuilders.termsQuery(SearchConstants.courseCategory + SearchConstants.RAW_FIELD_EXTENSION, restricted)));
+			if (StringUtils.isNotBlank(orgId)) {
+				orgFilter.should(QueryBuilders.termQuery(SearchConstants.CREATED_FOR + SearchConstants.RAW_FIELD_EXTENSION, orgId))
+						.should(QueryBuilders.nestedQuery(SearchConstants.secureSettings,
+								QueryBuilders.termQuery(SearchConstants.secureSettingsOrganisation, orgId), ScoreMode.None));
+			}
+			query = QueryBuilders.boolQuery().must(query).filter(orgFilter);
 		}
 		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
 		query = applyCoordinatorEligibilityFilter(query, userId, (Boolean) searchDTO.getAdditionalProperty(SearchConstants.BLENDED_PROGRAM_SEARCH));

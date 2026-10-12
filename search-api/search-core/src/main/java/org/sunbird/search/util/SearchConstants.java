@@ -167,5 +167,7 @@ public class SearchConstants {
     public static final int SEARCH_REDIS_TTL_DEFAULT = 300;
     public static final String SEARCH_REDIS_MAX_CACHEABLE_LIMIT = "search.redis.max.cacheable.limit";
     public static final int SEARCH_REDIS_MAX_CACHEABLE_LIMIT_DEFAULT = 200;
+    public static final int SEARCH_REDIS_POOL_MAX_TOTAL = 50;
+    public static final int SEARCH_REDIS_POOL_MAX_WAIT_MS = 100;
     public static final String SEARCH_CACHE_KEY_PREFIX = "v5search:";
 }
