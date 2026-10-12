@@ -608,8 +608,6 @@ public class SearchActor extends SearchBaseActor {
             Map<String, Object> property = getFilterProperty("visibility", SearchConstants.SEARCH_OPERATION_EQUAL, Arrays.asList(new String[] { "Default" }));
             properties.add(property);
         }
-
-
         return properties;
     }
 
