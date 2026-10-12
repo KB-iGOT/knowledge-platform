@@ -324,6 +324,9 @@ public class SearchActor extends SearchBaseActor {
             if (fuzzySearch != null) {
                 searchObj.setFuzzySearch(fuzzySearch);
             }
+            if (request.getContext() != null && StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V5, (String) request.getContext().get(SearchConstants.API_VERSION))) {
+                searchObj.addAdditionalProperty(SearchConstants.REQUEST_BODY, JsonUtils.serialize(req));
+            }
         } catch (ClassCastException e) {
             e.printStackTrace();
             throw new ClientException(SearchConstants.ERR_COMPOSITE_SEARCH_INVALID_PARAMS,
@@ -608,6 +611,7 @@ public class SearchActor extends SearchBaseActor {
             Map<String, Object> property = getFilterProperty("visibility", SearchConstants.SEARCH_OPERATION_EQUAL, Arrays.asList(new String[] { "Default" }));
             properties.add(property);
         }
+
 
         return properties;
     }
