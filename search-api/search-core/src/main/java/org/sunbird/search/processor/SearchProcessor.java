@@ -147,13 +147,6 @@ public class SearchProcessor {
 					}
 				}
 				resp.put(SearchConstants.count, (int) searchResult.getHits().getTotalHits());
-				if (cacheKey != null) {
-					try {
-						SearchCache.setAsync(cacheKey, mapper.writeValueAsString(resp));
-					} catch (Exception e) {
-						TelemetryManager.error("Error while saving search cache for key: " + cacheKey, e);
-					}
-				}
 				return resp;
 			}
 		}, ExecutionContext.Implicits$.MODULE$.global());
@@ -338,6 +331,20 @@ public class SearchProcessor {
 				boolQuery.filter(termsLookupQuery);
 				query = boolQuery;
 			}
+		}
+		List<String> restricted = Platform.getStringList(SearchConstants.ORG_RESTRICTED_CATEGORIES, Collections.<String>emptyList())
+				.stream().map(String::toLowerCase).collect(Collectors.toList());
+		if (StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V5, apiVersion) && CollectionUtils.isNotEmpty(restricted)) {
+			// Non restricted courses are always visible. A restricted course is visible only to the token org:
+			// created for it (createdFor), or shared with it (secureSettings.organisation). No token org => restricted courses are hidden.
+			BoolQueryBuilder orgFilter = QueryBuilders.boolQuery().minimumShouldMatch(1)
+					.should(QueryBuilders.boolQuery().mustNot(QueryBuilders.termsQuery(SearchConstants.courseCategory + SearchConstants.RAW_FIELD_EXTENSION, restricted)));
+			if (StringUtils.isNotBlank(orgId)) {
+				orgFilter.should(QueryBuilders.termQuery(SearchConstants.CREATED_FOR + SearchConstants.RAW_FIELD_EXTENSION, orgId))
+						.should(QueryBuilders.nestedQuery(SearchConstants.secureSettings,
+								QueryBuilders.termQuery(SearchConstants.secureSettingsOrganisation, orgId), ScoreMode.None));
+			}
+			query = QueryBuilders.boolQuery().must(query).filter(orgFilter);
 		}
 		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
 		query = applyCoordinatorEligibilityFilter(query, userId, (Boolean) searchDTO.getAdditionalProperty(SearchConstants.BLENDED_PROGRAM_SEARCH));

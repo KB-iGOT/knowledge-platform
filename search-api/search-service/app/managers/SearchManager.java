@@ -7,6 +7,7 @@ import akka.dispatch.Mapper;
 import akka.util.Timeout;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -17,6 +18,7 @@ import org.sunbird.common.dto.Request;
 import org.sunbird.common.dto.Response;
 import org.sunbird.common.dto.ResponseParams;
 import org.sunbird.common.exception.ResponseCode;
+import org.sunbird.search.util.SearchCache;
 import org.sunbird.search.util.SearchConstants;
 import org.sunbird.telemetry.logger.TelemetryManager;
 import scala.concurrent.Future;
@@ -63,7 +65,11 @@ public class SearchManager {
             perfLogger.info(request.getContext().get("scenario_name") + ","
                     + request.getContext().get("request_id") 
                     + "," + request.getOperation() + ",STARTTIME," + startTime);
-            res = ask(actor, request, WAIT_TIMEOUT)
+            // Redis cache (V5 only): the key is built from the original request body, before the actor changes it.
+            final String cacheKey = getCacheKey(request);
+            final Response cached = getCachedResponse(cacheKey);
+            Future<Object> actorResponse = cached != null ? Futures.<Object>successful(cached) : ask(actor, request, WAIT_TIMEOUT);
+            res = actorResponse
                     .map(new Mapper<Object, Future<Response>>() {
                         public Future<Response> apply(Object result) {
                             String correlationId = UUID.randomUUID().toString();
@@ -73,6 +79,9 @@ public class SearchManager {
                                     return (Future<Response>) Futures.successful(response);
                                 } else if (request.getOperation()
                                         .equalsIgnoreCase(SearchOperations.INDEX_SEARCH.name())) {
+                                    if (cacheKey != null && cached == null) {
+                                        setCachedResponse(cacheKey, response);
+                                    }
                                     Future<Response> searchResult = getSearchResponse(response, request, actor);
                                     writeTelemetryLog(request, response);
                                     return searchResult;
@@ -105,6 +114,38 @@ public class SearchManager {
             e.printStackTrace();
         }
         return res;
+    }
+
+    // Returns the cache key (token org + request body) for a cacheable V5 search request, else null.
+    private String getCacheKey(Request request) {
+        boolean cacheable = SearchCache.isEnable() && SearchOperations.INDEX_SEARCH.name().equalsIgnoreCase(request.getOperation())
+                && StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V5, MapUtils.getString(request.getContext(), SearchConstants.API_VERSION))
+                && SearchCache.isCacheable(MapUtils.getIntValue(request.getRequest(), SearchConstants.limit, 0));
+        return cacheable ? SearchConstants.SEARCH_CACHE_KEY_PREFIX
+                + DigestUtils.sha256Hex(StringUtils.defaultString(MapUtils.getString(request.getContext(), SearchConstants.ORG)) + request.getRequest()) : null;
+    }
+
+    private Response getCachedResponse(String cacheKey) {
+        String cached = cacheKey == null ? null : SearchCache.get(cacheKey);
+        if (StringUtils.isBlank(cached)) return null;
+        try {
+            Response response = new Response();
+            response.setResponseCode(ResponseCode.OK);
+            response.getResult().putAll(mapper.readValue(cached, Map.class));
+            return response;
+        } catch (Exception e) {
+            TelemetryManager.error("Error while reading search cache for key: " + cacheKey, e);
+            return null;
+        }
+    }
+
+    private void setCachedResponse(String cacheKey, Response response) {
+        try {
+            String value = mapper.writeValueAsString(response.getResult());
+            SearchCache.setAsync(cacheKey, value);
+        } catch (Exception e) {
+            TelemetryManager.error("Error while saving search cache for key: " + cacheKey, e);
+        }
     }
 
     private String getUUID() {

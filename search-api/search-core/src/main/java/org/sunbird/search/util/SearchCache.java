@@ -1,14 +1,10 @@
 package org.sunbird.search.util;
 
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.lang.StringUtils;
 import org.sunbird.common.Platform;
 import org.sunbird.telemetry.logger.TelemetryManager;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
-
-import java.security.MessageDigest;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -20,7 +16,7 @@ public class SearchCache {
     private static final int DB_INDEX = Platform.config.hasPath(SearchConstants.SEARCH_REDIS_DB_INDEX) ? Platform.config.getInt(SearchConstants.SEARCH_REDIS_DB_INDEX) : SearchConstants.SEARCH_REDIS_DB_INDEX_DEFAULT;
     private static final int TTL = Platform.config.hasPath(SearchConstants.SEARCH_REDIS_TTL) ? Platform.config.getInt(SearchConstants.SEARCH_REDIS_TTL) : SearchConstants.SEARCH_REDIS_TTL_DEFAULT;
     private static final int MAX_CACHEABLE_LIMIT = Platform.config.hasPath(SearchConstants.SEARCH_REDIS_MAX_CACHEABLE_LIMIT) ? Platform.config.getInt(SearchConstants.SEARCH_REDIS_MAX_CACHEABLE_LIMIT) : SearchConstants.SEARCH_REDIS_MAX_CACHEABLE_LIMIT_DEFAULT;
-    private static final JedisPool jedisPool = ENABLE ? new JedisPool(new JedisPoolConfig(),        HOST, PORT) : null;
+    private static final JedisPool jedisPool = ENABLE ? new JedisPool(getPoolConfig(), HOST, PORT) : null;
     private static final ExecutorService executor = Executors.newCachedThreadPool();
 
     public static boolean isEnable() {
@@ -31,16 +27,11 @@ public class SearchCache {
         return limit <= MAX_CACHEABLE_LIMIT;
     }
 
-    public static String getKey(String orgId, String requestBody) {
-        String key = StringUtils.isNotBlank(orgId) ? orgId + requestBody : requestBody;
-        return SearchConstants.SEARCH_CACHE_KEY_PREFIX + DigestUtils.sha256Hex(key);
-    }
-
     public static String get(String key) {
-        Jedis jedis = getConnection();
+        Jedis jedis = null;
         try {
-            String value = jedis.get(key);
-            return value;
+            jedis = getConnection();
+            return jedis.get(key);
         } catch (Exception e) {
             TelemetryManager.error("Error while fetching search cache for key: " + key, e);
             return null;
@@ -51,8 +42,9 @@ public class SearchCache {
 
     public static void setAsync(String key, String value) {
         executor.submit(() -> {
-            Jedis jedis = getConnection();
+            Jedis jedis = null;
             try {
+                jedis = getConnection();
                 jedis.setex(key, TTL, value);
             } catch (Exception e) {
                 TelemetryManager.error("Error while saving search cache for key: " + key, e);
@@ -60,6 +52,14 @@ public class SearchCache {
                 returnConnection(jedis);
             }
         });
+    }
+
+    // Bigger pool and a short wait, so an exhausted pool fails fast (request falls back to ES) instead of blocking request threads.
+    private static JedisPoolConfig getPoolConfig() {
+        JedisPoolConfig config = new JedisPoolConfig();
+        config.setMaxTotal(SearchConstants.SEARCH_REDIS_POOL_MAX_TOTAL);
+        config.setMaxWaitMillis(SearchConstants.SEARCH_REDIS_POOL_MAX_WAIT_MS);
+        return config;
     }
 
     private static Jedis getConnection() {
