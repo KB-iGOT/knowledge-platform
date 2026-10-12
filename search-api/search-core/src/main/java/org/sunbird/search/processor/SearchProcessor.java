@@ -84,44 +84,7 @@ public class SearchProcessor {
 			mainQuery.filter(getPostFilterQuery(searchDTO.getPostFilter())); // Apply filtering for aggregations
 			query.query(mainQuery);
 		}
-
-		boolean isCategoryRestricted = false;
-
-		if (CollectionUtils.isNotEmpty(searchDTO.getProperties())) {
-			List<String> restrictedCategories = Platform.getStringList(SearchConstants.ORG_RESTRICTED_CATEGORIES, new ArrayList<String>());
-
-			for (Map property : searchDTO.getProperties()) {
-				if (!SearchConstants.courseCategory.equals(property.get(SearchConstants.propertyName))) {
-					continue;
-				}
-
-				Object values = property.get(SearchConstants.values);
-				if (values instanceof List) {isCategoryRestricted = ((List<?>) values).stream()
-							.anyMatch(value -> restrictedCategories.stream().anyMatch(rc -> rc.equalsIgnoreCase(String.valueOf(value))));
-				}
-				break;
-			}
-		}
-
-		String requestBody = (String) searchDTO.getAdditionalProperty(SearchConstants.REQUEST_BODY);
-		String cacheOrgId = isCategoryRestricted ? (String) searchDTO.getAdditionalProperty(SearchConstants.ORG) : null;
-
-		boolean isV5 = StringUtils.equalsIgnoreCase(SearchConstants.VERSION_V5, (String) searchDTO.getAdditionalProperty(SearchConstants.API_VERSION));
-
-		final String cacheKey = isV5 && SearchCache.isEnable() && SearchCache.isCacheable(searchDTO.getLimit())
-				? SearchCache.getKey(cacheOrgId, requestBody) : null;
-
-		if (cacheKey != null) {
-			String cached = SearchCache.get(cacheKey);
-			if (StringUtils.isNotBlank(cached)) {
-				try {
-					return Futures.successful((Map<String, Object>) mapper.readValue(cached, Map.class));
-				} catch (Exception e) {
-					TelemetryManager.error("Error while reading search cache for key: " + cacheKey, e);
-				}
-			}
-		}
-
+				
 		searchResponse = ElasticSearchUtil.search(SearchConstants.COMPOSITE_SEARCH_INDEX, query);
 
 		return searchResponse.map(new Mapper<SearchResponse, Map<String, Object>>() {
