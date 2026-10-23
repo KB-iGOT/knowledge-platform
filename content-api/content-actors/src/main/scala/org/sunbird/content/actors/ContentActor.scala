@@ -35,6 +35,7 @@ import scala.collection.{JavaConverters, Map}
 import scala.concurrent.{ExecutionContext, Future}
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.sunbird.content.upload.mgr.validator.ArtifactUrlValidator
+import scala.sys.process._
 
 class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageService) extends BaseActor {
 
@@ -84,9 +85,165 @@ class ContentActor @Inject() (implicit oec: OntologyEngineContext, ss: StorageSe
 			case "createMLContent" => createMLContent(request)
 			case "reviewMLContent" => reviewMLContent(request)
 			case "updateReviewStatusMLContent" => updateReviewStatusMLContent(request)
+			case "getVideoDuration" => getVideoDuration(request)
 			case _ => ERROR(request.getOperation)
 				}
 		}
+	def getVideoDuration(request: Request): Future[Response] = {
+		val resourceDoId = request.getRequest.getOrDefault("resourceDoId", "").asInstanceOf[String]
+		val contentDoId = request.getRequest.getOrDefault("contentDoId", "").asInstanceOf[String]
+		val videoUrl = request.getRequest.getOrDefault("videoUrl", "").asInstanceOf[String]
+		if (StringUtils.isBlank(resourceDoId) || StringUtils.isBlank(contentDoId) || StringUtils.isBlank(videoUrl)) {
+			throw new ClientException("ERR_INVALID_REQUEST", "resourceDoId, contentDoId and videoUrl are mandatory")
+		}
+		// ---------------- RESOURCE READ ----------------
+		val resourceReadReq = new Request()
+		resourceReadReq.setContext(new java.util.HashMap[String, AnyRef]() {{
+				put("graph_id", "domain")
+				put("version", "1.0")
+				put("objectType", "Content")
+				put("schemaName", "content")
+			}}
+		)
+		resourceReadReq.put("identifier", resourceDoId)
+		resourceReadReq.put("mode", "read")
+		resourceReadReq.put("fields", new java.util.ArrayList[String]())
+		// ---------------- CONTENT READ ----------------
+		val contentReadReq = new Request()
+		contentReadReq.setContext(
+			new java.util.HashMap[String, AnyRef]() {{
+				put("graph_id", "domain")
+				put("version", "1.0")
+				put("objectType", "Content")
+				put("schemaName", "content")
+			}}
+		)
+		contentReadReq.put("identifier", contentDoId)
+		contentReadReq.put("mode", "read")
+		contentReadReq.put("fields", new java.util.ArrayList[String]())
+
+		def toIntDuration(value: String): Int = {
+			try {
+				if (StringUtils.isBlank(value)) 0 else value.toDouble.toInt
+			} catch {
+				case _: Exception => 0
+			}
+		}
+
+		def buildAbsoluteVideoUrl(inputVideoUrl: String): String = {
+			val normalized = StringUtils.stripStart(inputVideoUrl, "/")
+			val withoutContentStoreHost = StringUtils.removeStartIgnoreCase(normalized, "https://portal.dev.karmayogibharat.net/content-store/")
+			val withoutHost = StringUtils.removeStartIgnoreCase(withoutContentStoreHost, "https://portal.dev.karmayogibharat.net/")
+			val sanitizedInput = StringUtils.stripStart(withoutHost, "/")
+			"https://portal.dev.karmayogibharat.net/content-store/" + sanitizedInput
+		}
+
+		def buildStorageKey(inputVideoUrl: String): String = {
+			val withoutHost = StringUtils.removeStartIgnoreCase(inputVideoUrl, "https://portal.dev.karmayogibharat.net/")
+			StringUtils.removeStart(StringUtils.stripStart(withoutHost, "/"), "content-store/")
+		}
+
+		def buildUpdateRequest(identifier: String, updatePayload: java.util.Map[String, AnyRef]): Request = {
+			val updateReq = new Request()
+			updateReq.setObjectType("Content")
+			updateReq.setContext(new java.util.HashMap[String, AnyRef]() {{
+				put("graph_id", "domain")
+				put("version", "1.0")
+				put("objectType", "Content")
+				put("schemaName", "content")
+				put("identifier", identifier)
+				put("skipValidation", Boolean.box(true))
+			}})
+			updateReq.setOperation("systemUpdate")
+			updateReq.setRequest(updatePayload)
+			updateReq
+		}
+
+		val readNodesF = for {
+			resourceNodeOpt <- DataNode.read(resourceReadReq).map(Option(_)).recover {
+				case ex: Exception =>
+					logger.warn(s"Unable to read resourceDoId=$resourceDoId. Falling back duration=0", ex)
+					None
+			}
+			contentNodeOpt <- DataNode.read(contentReadReq).map(Option(_)).recover {
+				case ex: Exception =>
+					logger.warn(s"Unable to read contentDoId=$contentDoId. Falling back duration=0", ex)
+					None
+			}
+		} yield (resourceNodeOpt, contentNodeOpt)
+
+		readNodesF.flatMap { case (resourceNodeOpt, contentNodeOpt) =>
+			// existing durations and version keys from DB
+			val resourceOldDuration = resourceNodeOpt.flatMap(node => Option(node.getMetadata.get("duration"))).map(_.toString).getOrElse("0")
+			val resourceVersionKey = resourceNodeOpt.flatMap(node => Option(node.getMetadata.get("versionKey"))).map(_.toString).getOrElse("")
+			val contentOldDuration = contentNodeOpt.flatMap(node => Option(node.getMetadata.get("duration"))).map(_.toString).getOrElse("0")
+			val contentVersionKey =
+				contentNodeOpt.flatMap(node => Option(node.getMetadata.get("versionKey"))).map(_.toString).getOrElse("")
+
+			// latest duration from video URL
+
+			val absoluteVideoUrl = buildAbsoluteVideoUrl(videoUrl)
+			logger.info(s"getVideoDuration absoluteVideoUrl=$absoluteVideoUrl")
+			val storageKey = buildStorageKey(videoUrl)
+			val latestVideoDuration =
+				try {
+
+					val command = Seq(
+						"ffprobe",
+						"-v", "error",
+						"-show_entries", "format=duration",
+						"-of", "default=noprint_wrappers=1:nokey=1",
+						absoluteVideoUrl
+					)
+					val output = command.!!.trim
+					output.toDouble.toInt.toString
+				} catch {
+					case ex: Exception =>
+						logger.error("Error while fetching duration", ex)
+						"0"
+				}
+
+			val resourceOldDurationInt = toIntDuration(resourceOldDuration)
+			val contentOldDurationInt = toIntDuration(contentOldDuration)
+			val latestVideoDurationInt = toIntDuration(latestVideoDuration)
+			val updatedContentDurationInt = Math.max(0, contentOldDurationInt - resourceOldDurationInt + latestVideoDurationInt)
+			val updatedContentDuration = updatedContentDurationInt.toString
+
+			val resourceUpdatePayload = new java.util.HashMap[String, AnyRef]() {{
+				put("versionKey", resourceVersionKey)
+				put("identifier", resourceDoId)
+				put("previewUrl", absoluteVideoUrl)
+				put("artifactUrl", absoluteVideoUrl)
+				put("cloudStorageKey", storageKey)
+				put("s3Key", storageKey)
+				put("duration", latestVideoDuration)
+			}}
+
+			val contentUpdatePayload = new java.util.HashMap[String, AnyRef]() {{
+				put("versionKey", contentVersionKey)
+				put("identifier", contentDoId)
+				put("duration", updatedContentDuration)
+			}}
+
+			val resourceUpdateReq = buildUpdateRequest(resourceDoId, resourceUpdatePayload)
+			val contentUpdateReq = buildUpdateRequest(contentDoId, contentUpdatePayload)
+
+			for {
+				_ <- systemUpdate(resourceUpdateReq)
+				_ <- systemUpdate(contentUpdateReq)
+			} yield {
+				ResponseHandler.OK
+					.put("resourceOldDuration", resourceOldDuration)
+					.put("resourceVersionKey", resourceVersionKey)
+					.put("contentOldDuration", contentOldDuration)
+					.put("contentVersionKey", contentVersionKey)
+					.put("latestVideoDuration", latestVideoDuration)
+					.put("contentUpdatedDuration", updatedContentDuration)
+					.put("resourceUpdateStatus", "success")
+					.put("contentUpdateStatus", "success")
+			}
+		}
+	}
 
 	def create(request: Request): Future[Response] = {
 		populateDefaultersForCreation(request)
