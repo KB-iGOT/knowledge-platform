@@ -25,8 +25,8 @@ object FileUploadValidator {
 
     "application/epub" -> Set("application/epub+zip"),
     "application/epub+zip" -> Set("application/epub"),
-    "application/vnd.ekstep.html-archive" -> Set("application/zip"),
-    "application/vnd.ekstep.html" -> Set("text/html")
+    "application/vnd.ekstep.html" -> Set("text/html"),
+    "application/vnd.ekstep.html-archive" -> Set("application/zip")
   )
 
   def validate(file: File, metadataMimeType: String): Unit = {
