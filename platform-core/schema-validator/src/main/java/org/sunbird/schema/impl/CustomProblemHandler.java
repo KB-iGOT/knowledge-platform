@@ -67,6 +67,16 @@ public class CustomProblemHandler implements ProblemHandler {
                         + ((String) problem.parametersAsMap().get("name")).replace("\"", ""));
             }
             case "format": {
+                String attribute = String.valueOf(problem.parametersAsMap().get("attribute"));
+                if (attribute.startsWith("html-maxlength-")) {
+                    String limit = attribute.substring("html-maxlength-".length());
+                    return ("Metadata " + Arrays.stream(problem.getPointer().split("/"))
+                            .filter(StringUtils::isNotBlank)
+                            .findFirst().orElse("field")
+                            + " should not exceed maximum length of "
+                            + limit
+                            + " characters");
+                }
                 return ("Incorrect format for " + Arrays.stream(problem.getPointer().split("/"))
                         .filter(StringUtils::isNotBlank)
                         .findFirst().orElse("")

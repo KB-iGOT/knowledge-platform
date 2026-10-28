@@ -41,6 +41,12 @@ class MimeTypeManagerFactoryTest extends FlatSpec with Matchers {
 		assert(mgr.isInstanceOf[DocumentMimeTypeMgrImpl])
 	}
 
+	"getManager with mimeType application/vnd.ekstep.html" should "give instance of DocumentMimeTypeMgrImpl" in {
+		val mgr = MimeTypeManagerFactory.getManager("TextBook", "application/vnd.ekstep.html")
+		assert(null != mgr)
+		assert(mgr.isInstanceOf[DocumentMimeTypeMgrImpl])
+	}
+
 	"getManager with mimeType assets" should "give instance of AssetMimeTypeMgrImpl" in {
 		val mgr = MimeTypeManagerFactory.getManager("Resource", "assets")
 		assert(null != mgr)

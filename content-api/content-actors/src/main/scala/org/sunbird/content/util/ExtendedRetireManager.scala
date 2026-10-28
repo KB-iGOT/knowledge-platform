@@ -562,7 +562,7 @@ object ExtendedRetireManager {
       })
     }
     val keyspace = Platform.getString(ContentConstants.SUNBIRD__KEYSPACE, "sunbird")
-    val table    = Platform.getString(ContentConstants.CB_PLAN_LOOKUP_TABLE, "cb_plan_v2_content_lookup")
+    val table    = Platform.getString(ContentConstants.CB_PLAN_LOOKUP_TABLE, "cb_plan_v4_content_lookup")
     val selectQuery = select.from(keyspace, table)
     val clause: Clause = QueryBuilder.eq(ContentConstants.CONTENT_ID, identifier)
     selectQuery.where.and(clause)

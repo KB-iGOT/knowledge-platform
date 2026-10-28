@@ -42,4 +42,7 @@ object ApiId {
 	val IMPORT_QUESTION_SET = "api.questionset.import"
 	val SYSTEM_UPDATE_QUESTION_SET = "api.questionset.system.update"
 
+	//QuestionSet APIs - v1
+	val PUBLISH_QUESTION_SET_V1 = "api.questionset.v1.publish"
+
 }
