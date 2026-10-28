@@ -308,8 +308,9 @@ public class SearchProcessor {
 			}
 			query = QueryBuilders.boolQuery().must(query).filter(orgFilter);
 		}
-		String userId = (String) searchDTO.getAdditionalProperty(SearchConstants.USER_ID);
-		query = applyCoordinatorEligibilityFilter(query, searchDTO);
+		if (Boolean.TRUE.equals(searchDTO.getAdditionalProperty(BLENDED_PROGRAM_SEARCH))) {
+			query = applyCoordinatorEligibilityFilter(query, searchDTO);
+		}
 		if (searchDTO.isFuzzySearch())
 			relevanceSort = true;
 
@@ -1092,13 +1093,6 @@ public class SearchProcessor {
 
 		String userId = (String) searchDTO.getAdditionalProperty(
 				SearchConstants.USER_ID);
-
-		Boolean isBlendedProgramSearch = (Boolean) searchDTO.getAdditionalProperty(BLENDED_PROGRAM_SEARCH);
-
-		if (!Boolean.TRUE.equals(isBlendedProgramSearch)
-				|| StringUtils.isBlank(userId)) {
-			return query;
-		}
 
 		List<String> courseCategories = new ArrayList<>();
 		if (CollectionUtils.isNotEmpty(searchDTO.getProperties())) {
