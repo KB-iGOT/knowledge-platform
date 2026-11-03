@@ -340,7 +340,8 @@ public class SearchProcessor {
 		setAggregations(groupByFinalList, searchSourceBuilder);
 		setAggregations(searchSourceBuilder, searchDTO.getAggregations());
 		searchSourceBuilder.trackScores(true);
-		TelemetryManager.info("SearchProcessor - ES Query: " + searchSourceBuilder.toString());
+		// Truncated so a large query does not bloat the logs
+		TelemetryManager.info("SearchProcessor - ES Query: " + StringUtils.abbreviate(searchSourceBuilder.toString(), 500));
 		return searchSourceBuilder;
 	}
 

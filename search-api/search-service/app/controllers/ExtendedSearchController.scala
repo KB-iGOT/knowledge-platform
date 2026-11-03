@@ -24,7 +24,10 @@ class ExtendedSearchController @Inject()(@Named(ActorNames.SEARCH_ACTOR) searchA
     val mgr: SearchManager = new SearchManager()
 
     def searchV5() = loggingAction.async { implicit request =>
-        val headersString = request.headers.headers.map(h => h._1 + "=" + h._2).mkString(", ")
+        // Credential headers are masked so the user token / bearer token never reach the logs
+        val sensitiveHeaders = Set("x-authenticated-user-token", "authorization", "cookie", "x-auth-token")
+        val headersString = request.headers.headers
+          .map(h => h._1 + "=" + (if (sensitiveHeaders.contains(h._1.toLowerCase)) "***" else h._2)).mkString(", ")
         TelemetryManager.info("searchV5 incoming headers: " + headersString)
 
         val internalReq = getRequest(ApiId.APPLICATION_SEARCH)
