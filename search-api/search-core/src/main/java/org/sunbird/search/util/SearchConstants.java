@@ -172,4 +172,6 @@ public class SearchConstants {
     public static final int SEARCH_REDIS_POOL_MAX_TOTAL = 50;
     public static final int SEARCH_REDIS_POOL_MAX_WAIT_MS = 100;
     public static final String SEARCH_CACHE_KEY_PREFIX = "v5search:";
+    public static final String resourceType = "resourceType";
+    public static final String RESOURCE_TYPE_EXCLUDE_VALUES = "search.filter.resourceType.excludeValues";
 }

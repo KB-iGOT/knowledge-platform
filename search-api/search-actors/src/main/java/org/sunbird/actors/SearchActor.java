@@ -594,6 +594,16 @@ public class SearchActor extends SearchBaseActor {
                         property.put(SearchConstants.operation,
                                 SearchConstants.SEARCH_OPERATION_EQUAL);
                         properties.add(property);
+                    } else if (SearchConstants.resourceType.equalsIgnoreCase(entry.getKey())) {
+                        List<String> excludeResourceTypes = Platform.getStringList(
+                                SearchConstants.RESOURCE_TYPE_EXCLUDE_VALUES, new ArrayList<>());
+                        if (CollectionUtils.isNotEmpty(excludeResourceTypes)) {
+                            List<String> lowerCaseExcludeResourceTypes = excludeResourceTypes.stream()
+                                    .map(String::toLowerCase).collect(Collectors.toList());
+                            Map<String, Object> property = getFilterProperty(SearchConstants.resourceType,
+                                    SearchConstants.SEARCH_OPERATION_NOT_IN, lowerCaseExcludeResourceTypes);
+                            properties.add(property);
+                        }
                     }
                 }
             }
