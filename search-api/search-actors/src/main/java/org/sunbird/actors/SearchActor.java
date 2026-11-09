@@ -594,16 +594,6 @@ public class SearchActor extends SearchBaseActor {
                         property.put(SearchConstants.operation,
                                 SearchConstants.SEARCH_OPERATION_EQUAL);
                         properties.add(property);
-                    } else if (SearchConstants.resourceType.equalsIgnoreCase(entry.getKey())) {
-                        List<String> excludeResourceTypes = Platform.getStringList(
-                                SearchConstants.RESOURCE_TYPE_EXCLUDE_VALUES, new ArrayList<>());
-                        if (CollectionUtils.isNotEmpty(excludeResourceTypes)) {
-                            List<String> lowerCaseExcludeResourceTypes = excludeResourceTypes.stream()
-                                    .map(String::toLowerCase).collect(Collectors.toList());
-                            Map<String, Object> property = getFilterProperty(SearchConstants.resourceType,
-                                    SearchConstants.SEARCH_OPERATION_NOT_IN, lowerCaseExcludeResourceTypes);
-                            properties.add(property);
-                        }
                     }
                 }
             }
@@ -618,7 +608,22 @@ public class SearchActor extends SearchBaseActor {
             Map<String, Object> property = getFilterProperty("visibility", SearchConstants.SEARCH_OPERATION_EQUAL, Arrays.asList(new String[] { "Default" }));
             properties.add(property);
         }
+
+        if (toLowerCaseList(filters.get(SearchConstants.contentType)).contains(SearchConstants.EVENT.toLowerCase())) {
+            List<String> requested = toLowerCaseList(filters.get(SearchConstants.resourceType));
+            List<String> exclude = Platform.getStringList(SearchConstants.RESOURCE_TYPE_EXCLUDE_VALUES, new ArrayList<>())
+                    .stream().map(String::toLowerCase).filter(v -> !requested.contains(v)).collect(Collectors.toList());
+            if (CollectionUtils.isNotEmpty(exclude)) {
+                properties.add(getFilterProperty(SearchConstants.resourceType, SearchConstants.SEARCH_OPERATION_NOT_IN, exclude));
+            }
+        }
         return properties;
+    }
+
+    private List<String> toLowerCaseList(Object filterValue) {
+        List<String> values = filterValue instanceof List ? (List<String>) filterValue
+                : filterValue instanceof String ? Arrays.asList((String) filterValue) : new ArrayList<>();
+        return values.stream().filter(StringUtils::isNotBlank).map(String::toLowerCase).collect(Collectors.toList());
     }
 
     private List<String> getObjectTypesWithVisibility() {

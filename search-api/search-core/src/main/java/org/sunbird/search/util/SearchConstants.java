@@ -174,4 +174,6 @@ public class SearchConstants {
     public static final String SEARCH_CACHE_KEY_PREFIX = "v5search:";
     public static final String resourceType = "resourceType";
     public static final String RESOURCE_TYPE_EXCLUDE_VALUES = "search.filter.resourceType.excludeValues";
+    public static final String contentType = "contentType";
+    public static final String EVENT = "Event";
 }
