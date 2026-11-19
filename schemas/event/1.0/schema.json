@@ -181,6 +181,10 @@
         "description": {
             "type": "string"
         },
+        "certificateRequired": {
+            "type": "string",
+            "enum": ["Yes","No"]
+        },
         "trackable": {
             "type": "object",
             "properties": {
