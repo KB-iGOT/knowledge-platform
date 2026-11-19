@@ -45,10 +45,10 @@ class EventActor @Inject()(implicit oec: OntologyEngineContext, ss: StorageServi
   // Validate before schema normalization and on paths that bypass schema validation.
   private def validateCertificateRequired(request: Request): Unit = {
     val metadata = request.getRequest
-    if (metadata.containsKey("certificateRequired")) {
-      val value = metadata.get("certificateRequired")
-      if (value != "Yes" && value != "No") {
-        throw new ClientException("ERR_INVALID_REQUEST", "certificateRequired must be Yes or No.")
+    if (metadata.containsKey(ContentConstants.CERTIFICATE_REQUIRED)) {
+      metadata.get(ContentConstants.CERTIFICATE_REQUIRED) match {
+        case value: String if ContentConstants.VALID_CERTIFICATE_REQUIRED_VALUES.contains(value) =>
+        case _ => throw new ClientException("ERR_INVALID_REQUEST", "certificateRequired must be Yes or No.")
       }
     }
   }
