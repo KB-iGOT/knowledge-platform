@@ -100,6 +100,8 @@ object ContentConstants {
     val CODE: String = "code"
     val LANGUAGE: String = "language"
     val PRIMARY_CATEGORY: String = "primaryCategory"
+    val CERTIFICATE_REQUIRED: String = "certificateRequired"
+    val VALID_CERTIFICATE_REQUIRED_VALUES: Set[String] = Set("Yes", "No")
     val POSTER_IMAGE: String = "posterImage"
     val APP_ICON: String = "appIcon"
     val CREATOR_LOGO: String = "creatorLogo"
