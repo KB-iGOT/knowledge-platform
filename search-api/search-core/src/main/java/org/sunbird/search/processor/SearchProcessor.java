@@ -1094,29 +1094,6 @@ public class SearchProcessor {
 		String userId = (String) searchDTO.getAdditionalProperty(
 				SearchConstants.USER_ID);
 
-		List<String> courseCategories = new ArrayList<>();
-		if (CollectionUtils.isNotEmpty(searchDTO.getProperties())) {
-			for (Map property : searchDTO.getProperties()) {
-				Object propertyName = property.get(SearchConstants.propertyName);
-				if (COURSE_CATEGORY.equalsIgnoreCase(String.valueOf(propertyName))) {
-					Object values = property.get(SearchConstants.values);
-					if (values instanceof Collection) {
-						for (Object value : (Collection) values) {
-							if (value != null) {
-								courseCategories.add(value.toString());
-							}
-						}
-					} else if (values != null) {
-						courseCategories.add(values.toString());
-					}
-				}
-			}
-		}
-
-		if (CollectionUtils.isEmpty(courseCategories)) {
-			return query;
-		}
-
 		org.elasticsearch.indices.TermsLookup coordinatorTermsLookup =
 				new org.elasticsearch.indices.TermsLookup(
 						userProgramLookupIndex,
@@ -1137,26 +1114,13 @@ public class SearchProcessor {
 			throw new RuntimeException(
 					"Failed to instantiate TermsQueryBuilder", e);
 		}
-		BoolQueryBuilder eligibilityQuery = QueryBuilders.boolQuery();
-		if (courseCategories.stream().anyMatch(category -> BLENDED_PROGRAM.equalsIgnoreCase(category))) {
-			BoolQueryBuilder blendedProgramQuery = QueryBuilders.boolQuery();
-			blendedProgramQuery.filter(QueryBuilders.termQuery(COURSE_CATEGORY + RAW_FIELD_EXTENSION, BLENDED_PROGRAM));
-			blendedProgramQuery.filter(coordinatorTermsLookupQuery);
-			eligibilityQuery.should(blendedProgramQuery);
-		}
-		List<String> nonCoordinatorCategories =
-				courseCategories.stream()
-						.filter(category -> !BLENDED_PROGRAM.equalsIgnoreCase(category))
-						.collect(Collectors.toList());
-
-		if (CollectionUtils.isNotEmpty(nonCoordinatorCategories)) {
-			BoolQueryBuilder nonCoordinatorQuery = QueryBuilders.boolQuery();
-			nonCoordinatorQuery.filter(QueryBuilders.termsQuery(COURSE_CATEGORY + RAW_FIELD_EXTENSION, nonCoordinatorCategories));
-			eligibilityQuery.should(nonCoordinatorQuery);
-		}
-
-		eligibilityQuery.minimumShouldMatch(1);
-
+		// Blended Programs must be in the user's lookup; other program types are not restricted.
+		// The .raw fields are lowercased by the keylower analyzer, so match (analyzed) is used instead of term.
+		BoolQueryBuilder eligibilityQuery = QueryBuilders.boolQuery()
+				.should(QueryBuilders.boolQuery().mustNot(
+						QueryBuilders.matchQuery(COURSE_CATEGORY + RAW_FIELD_EXTENSION, BLENDED_PROGRAM)))
+				.should(coordinatorTermsLookupQuery)
+				.minimumShouldMatch(1);
 
 		if (query instanceof BoolQueryBuilder) {
 			((BoolQueryBuilder) query).filter(eligibilityQuery);
