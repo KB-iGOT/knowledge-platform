@@ -15,6 +15,65 @@ import scala.concurrent.Future
 
 class TestEventActor extends BaseSpec with MockFactory {
 
+    for (certificateRequired <- Seq(Some("Yes"), Some("No"), None)) {
+        it should s"create and read an Event with certificateRequired ${certificateRequired.getOrElse("omitted")}" in {
+            implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
+            implicit val ss: StorageService = mock[StorageService]
+            val graphDB = mock[GraphService]
+            (oec.graphService _).expects().returns(graphDB).anyNumberOfTimes()
+            (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *)
+                .returns(Future.successful(getCategoryNode())).anyNumberOfTimes()
+
+            var storedEvent: Node = null
+            (graphDB.addNode(_: String, _: Node)).expects(*, *).onCall { (_: String, node: Node) =>
+                assert(Option(node.getMetadata.get("certificateRequired")) == certificateRequired)
+                storedEvent = node
+                Future.successful(node)
+            }
+
+            val createRequest = getContentRequest()
+            createRequest.setOperation("createContent")
+            createRequest.putAll(mapAsJavaMap(Map("name" -> "Webinar Event", "code" -> "webinar",
+                "startDate" -> "2021-03-04", "endDate" -> "2021-03-04", "startTime" -> "11:00:00Z",
+                "endTime" -> "12:00:00Z", "registrationEndDate" -> "2021-03-04", "eventType" -> "Online",
+                "license" -> "CC BY 4.0")))
+            certificateRequired.foreach(value => createRequest.put("certificateRequired", value))
+            val createResponse = callActor(createRequest, Props(new EventActor()))
+            assert(createResponse.getResponseCode == ResponseCode.OK)
+
+            val identifier = createResponse.get("identifier").asInstanceOf[String]
+            (graphDB.getNodeByUniqueId(_: String, _: String, _: Boolean, _: Request)).expects(*, identifier, *, *)
+                .returns(Future.successful(storedEvent))
+            val readRequest = getContentRequest()
+            readRequest.setOperation("readContent")
+            readRequest.getContext.put("identifier", identifier)
+            readRequest.getContext.put("responseSchemaName", "event")
+            readRequest.put("identifier", identifier)
+            readRequest.put("fields", "name,certificateRequired")
+            val readResponse = callActor(readRequest, Props(new EventActor()))
+            assert(readResponse.getResponseCode == ResponseCode.OK)
+            val metadata = readResponse.get("event").asInstanceOf[util.Map[String, AnyRef]]
+            assert(metadata.get("name") == "Webinar Event")
+            assert(metadata.containsKey("certificateRequired") == certificateRequired.isDefined)
+            assert(Option(metadata.get("certificateRequired")) == certificateRequired)
+        }
+    }
+
+    for (operation <- Seq("createContent", "updateContent", "systemUpdate")) {
+        it should s"reject an invalid certificateRequired in $operation before graph access" in {
+            implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
+            implicit val ss: StorageService = mock[StorageService]
+            for (value <- Seq[AnyRef]("Maybe", "yes", "", null, java.lang.Boolean.TRUE)) {
+                val request = getContentRequest()
+                request.setOperation(operation)
+                request.getRequest.put("certificateRequired", value)
+                val response = callActor(request, Props(new EventActor()))
+                assert(response.getResponseCode == ResponseCode.CLIENT_ERROR)
+                assert(response.getParams.getErrmsg == "certificateRequired must be Yes or No.")
+            }
+        }
+    }
+
     it should "discard node in draft state should return success" in {
         implicit val oec: OntologyEngineContext = mock[OntologyEngineContext]
         val graphDB = mock[GraphService]
@@ -111,12 +170,18 @@ class TestEventActor extends BaseSpec with MockFactory {
         val nodes: util.List[Node] = getCategoryNode()
         (graphDB.getNodeByUniqueIds(_: String, _: SearchCriteria)).expects(*, *).returns(Future(nodes)).anyNumberOfTimes()
 
-        (graphDB.upsertNode(_: String, _: Node, _: Request)).expects(*, *, *).returns(Future(node))
+        node.getMetadata.put("certificateRequired", "Yes")
+        (graphDB.upsertNode(_: String, _: Node, _: Request)).expects(*, *, *).onCall {
+            (_: String, updatedNode: Node, _: Request) =>
+                assert(updatedNode.getMetadata.get("certificateRequired") == "No")
+                Future.successful(updatedNode)
+        }
         val request = getContentRequest()
         request.getContext.put("identifier","do_1234")
         request.putAll(mapAsJavaMap(Map("name" -> "New Content", "code" -> "1234",
             "startDate" ->  "2021-03-04", "endDate" -> "2021-03-04", "startTime" -> "11:00:00Z", "endTime" -> "11:00:00Z",
             "registrationEndDate" -> "2021-03-04", "eventType" -> "Online", "versionKey" -> "test_123")))
+        request.put("certificateRequired", "No")
         request.setOperation("updateContent")
         val response = callActor(request, Props(new EventActor()))
         assert("successful".equals(response.getParams.getStatus))

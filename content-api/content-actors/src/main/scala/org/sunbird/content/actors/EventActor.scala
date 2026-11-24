@@ -42,7 +42,24 @@ class EventActor @Inject()(implicit oec: OntologyEngineContext, ss: StorageServi
     }
   }
 
+  // Validate before schema normalization and on paths that bypass schema validation.
+  private def validateCertificateRequired(request: Request): Unit = {
+    val metadata = request.getRequest
+    if (metadata.containsKey(ContentConstants.CERTIFICATE_REQUIRED)) {
+      metadata.get(ContentConstants.CERTIFICATE_REQUIRED) match {
+        case value: String if ContentConstants.VALID_CERTIFICATE_REQUIRED_VALUES.contains(value) =>
+        case _ => throw new ClientException("ERR_INVALID_REQUEST", "certificateRequired must be Yes or No.")
+      }
+    }
+  }
+
+  override def create(request: Request): Future[Response] = {
+    validateCertificateRequired(request)
+    super.create(request)
+  }
+
   override def update(request: Request): Future[Response] = {
+    validateCertificateRequired(request)
     val startDateTimeStr = request.getRequest.getOrDefault("startDateTime", "").asInstanceOf[String]
     val endDateTimeStr = request.getRequest.getOrDefault("endDateTime", "").asInstanceOf[String]
     if (StringUtils.isNotBlank(startDateTimeStr) && StringUtils.isNotBlank(endDateTimeStr)) {
@@ -228,6 +245,7 @@ class EventActor @Inject()(implicit oec: OntologyEngineContext, ss: StorageServi
   }
 
   override def systemUpdate(request: Request): Future[Response] = {
+    validateCertificateRequired(request)
     RedisCache.delete(request.get("identifier").asInstanceOf[String])
     val identifier = request.get("identifier").asInstanceOf[String]
     val updatedIdentifier = if (!identifier.endsWith(".img")) s"$identifier.img" else identifier
