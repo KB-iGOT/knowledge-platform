@@ -110,6 +110,7 @@ public class SearchConstants {
     public static final String not_exists = "not_exists";
     public static final String facets = "facets";
     public static final String sort_by = "sort_by";
+    public static final String cdata = "cdata";
     public static final String graph_id = "graph_id";
     public static final String ContentImage = "ContentImage";
     public static final String mode = "mode";

@@ -150,6 +150,43 @@ class ExtendedSearchControllerSpec extends BaseSpec {
             status(response) must equalTo(OK)
         }
 
+        "return success response for searchV5 API with cdata" in {
+            val controller = app.injector.instanceOf[controllers.ExtendedSearchController]
+            val json: JsValue = Json.parse("""{"request": {"filters": {"objectType": ["Framework"]}, "cdata": {"id": "session-1", "type": "global-search"}}}""")
+            val fakeRequest = FakeRequest("POST", "/v5/search")
+              .withJsonBody(json)
+              .withHeaders("x-authenticated-user-token" -> standardToken)
+            val response = controller.searchV5()(fakeRequest)
+            isOK(response)
+            status(response) must equalTo(OK)
+        }
+
+        "convert searchV5 cdata object or list to a list of valid id and type entries" in {
+            val controller = app.injector.instanceOf[controllers.ExtendedSearchController]
+            // Scala mangles the name of a private method used inside a closure, so match on the suffix.
+            val getCdata = classOf[controllers.ExtendedSearchController].getDeclaredMethods.find(_.getName.endsWith("getCdata")).get
+            getCdata.setAccessible(true)
+            def entry(id: Any, cdataType: Any): java.util.Map[String, Object] = {
+                val map = new java.util.HashMap[String, Object]()
+                map.put("id", id.asInstanceOf[Object])
+                map.put("type", cdataType.asInstanceOf[Object])
+                map
+            }
+            def call(input: Object) = getCdata.invoke(controller, input).asInstanceOf[java.util.List[java.util.Map[String, Object]]]
+
+            val fromObject = call(entry("session-1", "global-search"))
+            fromObject.size() must equalTo(1)
+            fromObject.get(0).get("id") must equalTo("session-1")
+            fromObject.get(0).get("type") must equalTo("global-search")
+
+            val fromList = call(java.util.Arrays.asList(entry("session-1", "global-search"), entry("", "global-search"), entry("session-2", null), "invalid"))
+            fromList.size() must equalTo(1)
+            fromList.get(0).get("id") must equalTo("session-1")
+
+            call(null).isEmpty must beTrue
+            call("invalid").isEmpty must beTrue
+        }
+
         "return client error response for searchV5 API if visibility is 'Private'" in {
             val controller = app.injector.instanceOf[controllers.ExtendedSearchController]
             val json: JsValue = Json.parse("""{"request": {"filters": {"visibility": ["Private"]}}}""")

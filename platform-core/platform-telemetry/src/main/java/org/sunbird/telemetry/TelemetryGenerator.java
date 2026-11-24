@@ -157,12 +157,9 @@ public class TelemetryGenerator {
         edata.put("sort", sort);
         edata.put("size", size);
         edata.put("topn", topN);
-        Telemetry telemetry;
-        if (null != cData) {
-            telemetry = new Telemetry("SEARCH", actor, eventContext, edata, cData);
-        } else {
-            telemetry = new Telemetry("SEARCH", actor, eventContext, edata);
-        }
+        if (null != cData && !cData.isEmpty())
+            eventContext.setCdata(cData);
+        Telemetry telemetry = new Telemetry("SEARCH", actor, eventContext, edata);
 		if (null != context.get("objectId") && null != context.get("objectType")) {
 			Target object = new Target(context.get("objectId"), context.get("objectType"));
 			telemetry.setObject(object);

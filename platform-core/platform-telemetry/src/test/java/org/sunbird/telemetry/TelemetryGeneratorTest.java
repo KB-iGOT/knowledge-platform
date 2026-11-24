@@ -163,6 +163,28 @@ public class TelemetryGeneratorTest {
         Assert.assertNotNull(eventMap.get("syncts"));
     }
 
+    @Test
+    public void testSearchWithCdata() throws Exception {
+        List<Map<String, Object>> cdata = Arrays.asList(new HashMap<String, Object>() {{
+            put("id", "session-1");
+            put("type", "global-search");
+        }});
+        String event = TelemetryGenerator.search(getContext(), "AI", new HashMap<>(), new HashMap<>(), cdata, 64, new ArrayList<>(), "all");
+        Map<String, Object> eventMap = JsonUtils.deserialize(event, Map.class);
+        Assert.assertEquals(eventMap.get("eid"), "SEARCH");
+        Assert.assertEquals(((Map<String, Object>) eventMap.get("context")).get("cdata"), cdata);
+        Assert.assertNull(eventMap.get("cdata"));
+        Assert.assertEquals(((Map<String, Object>) eventMap.get("edata")).get("query"), "AI");
+    }
+
+    @Test
+    public void testSearchWithoutCdata() throws Exception {
+        String event = TelemetryGenerator.search(getContext(), "AI", new HashMap<>(), new HashMap<>(), null, 64, new ArrayList<>(), "all");
+        Map<String, Object> eventMap = JsonUtils.deserialize(event, Map.class);
+        Assert.assertFalse(((Map<String, Object>) eventMap.get("context")).containsKey("cdata"));
+        Assert.assertNull(eventMap.get("cdata"));
+    }
+
 
     private Map<String, String> getContext() {
         return new HashMap<>() {{

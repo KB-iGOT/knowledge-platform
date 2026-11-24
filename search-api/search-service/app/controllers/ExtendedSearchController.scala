@@ -57,6 +57,10 @@ class ExtendedSearchController @Inject()(@Named(ActorNames.SEARCH_ACTOR) searchA
         internalReq.getContext.put(SearchConstants.ORG, orgId)
         internalReq.getContext.put(SearchConstants.API_VERSION, SearchConstants.VERSION_V5)
 
+        // Telemetry cdata moves from the request body to the context, keeping it out of the search cache key.
+        val cdata = getCdata(requestMap.remove(SearchConstants.cdata))
+        if (!cdata.isEmpty) internalReq.getContext.put(SearchConstants.cdata, cdata)
+
         val filters = internalReq.getRequest.getOrDefault(SearchConstants.filters, new java.util.HashMap()).asInstanceOf[java.util.Map[String, Object]]
         val visibilityObject = filters.getOrDefault("visibility","")
         var visibility:util.List[String] = null
@@ -71,6 +75,22 @@ class ExtendedSearchController @Inject()(@Named(ActorNames.SEARCH_ACTOR) searchA
             internalReq.getContext.put(SearchConstants.setDefaultVisibility, "true")
             getResult(mgr.search(internalReq, searchActor), ApiId.APPLICATION_SEARCH)
         }
+    }
+
+    // Accepts cdata as a single {id, type} object or a list of them; entries without both id and type are dropped.
+    private def getCdata(cdataObj: Any): java.util.List[java.util.Map[String, Object]] = {
+        val entries: List[Any] = cdataObj match {
+            case list: java.util.List[_] => list.asScala.toList
+            case map: java.util.Map[_, _] => List(map)
+            case _ => List()
+        }
+        entries.collect { case entry: java.util.Map[_, _] => (entry.get("id"), entry.get("type")) }
+          .collect { case (id: String, cdataType: String) if StringUtils.isNotBlank(id) && StringUtils.isNotBlank(cdataType) =>
+              val item: java.util.Map[String, Object] = new java.util.HashMap[String, Object]()
+              item.put("id", id)
+              item.put("type", cdataType)
+              item
+          }.asJava
     }
 
     private def getClaimsFromToken(token: String): java.util.Map[String, Object] = {

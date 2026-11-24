@@ -179,6 +179,7 @@ public class TelemetryManager {
 	public static void search(Map<String, Object> context, String query, Object filters, Object sort,
 							  int size, Object topN, String type) {
 		Map<String, String> reqContext=null;
+		List<Map<String, Object>> cdata=null;
 		String deviceId=null;
 		String appId=null;
 
@@ -195,9 +196,11 @@ public class TelemetryManager {
 				reqContext.put("objectId", (String) context.get("objectId"));
 				reqContext.put("objectType", (String) context.get("objectType"));
 			}
+			if (context.get("cdata") instanceof List)
+				cdata = (List<Map<String, Object>>) context.get("cdata");
 		}
 
-		String event = TelemetryGenerator.search(reqContext, query, filters, sort, null, size, topN, type);
+		String event = TelemetryGenerator.search(reqContext, query, filters, sort, cdata, size, topN, type);
 		telemetryHandler.send(event, Level.INFO, true);
 	}
 

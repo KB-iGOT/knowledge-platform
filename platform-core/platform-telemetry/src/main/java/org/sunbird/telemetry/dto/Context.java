@@ -6,6 +6,9 @@ package org.sunbird.telemetry.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 
+import java.util.List;
+import java.util.Map;
+
 /**
  * @author mahesh
  *
@@ -26,6 +29,7 @@ public class Context {
 	private String env;
 	private String sid;
 	private String did;
+	private List<Map<String, Object>> cdata;
 	
 	
 	/**
@@ -87,6 +91,18 @@ public class Context {
 	 */
 	public void setDid(String did) {
 		this.did = did;
+	}
+	/**
+	 * @return the cdata
+	 */
+	public List<Map<String, Object>> getCdata() {
+		return cdata;
+	}
+	/**
+	 * @param cdata the cdata to set
+	 */
+	public void setCdata(List<Map<String, Object>> cdata) {
+		this.cdata = cdata;
 	}
 	
 }
